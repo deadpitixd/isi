@@ -1,0 +1,127 @@
+body {
+    background-color: #333;
+    font-family: "Cascadia Mono", "Courier New", monospace;
+    font-size: 16px;
+    color: #d4d4d4;
+}
+h1{
+    font-family: "Corbel", "Courier New", monospace;    
+    color: #d4d4d4;
+}
+.container {
+    display: flex-block;
+    border-radius: 5px;
+    padding: 20px;
+    background-color: #2d2d2d;
+    border: 1px solid #444;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 16px;
+    color: #d4d4d4;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}          
+.container:hover {
+    border-color: #335169;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+.box {
+    width: 150px;
+    height: 150px;
+    background-color: #ffcc00;
+
+}
+
+.content-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
+.button-group {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.nav-button {
+    background-color: #3c3c3c;
+    color: #61afef;
+    border: 1px solid #444;
+    width: 150px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: "Corbel", sans-serif;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.nav-button:hover {
+    background-color: #444;
+    border-color: #61afef;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+a {
+    text-decoration: none;
+    display: inline-block;
+}
+
+.g { color: #98c379; }
+.b { color: #61afef; }
+.y { color: #e5c07b; }
+.r { color: #e06c75; }
+
+.p { color: #d19a66; }
+code span {
+    font-weight: 500;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.05);
+}
+.menu-btn-group{
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.menu-button{
+    color: rgb(185, 185, 185);
+    border-color: #2d2d2d;
+    width: 150px;
+    height: 50px;
+    border: 0;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    background-color: #335169;
+    transition: 0.5s ease;
+}
+
+.menu-button:active{
+    background-color: #4d799e;
+    box-shadow: 0 4px 120px rgba(0, 0, 0, 0.3);
+    transform: scale(1.2);
+    transition: 0.1s ease;
+}
+
+.menu-button:hover{
+    background-color: #417286;
+    box-shadow: 0 4px 100px rgba(0, 0, 0, 0.3);
+    transform: scale(1.05);
+    transition: 0.5s ease;
+}
+
+.iframe-container {
+    display: block;
+    align-items: center; 
+    margin: 0 auto;
+    position: relative;
+    width: 100%;
+    height: 116px;
+    overflow: hidden;
+}
+.iframe-container iframe {
+    position: absolute;
+    display: block;
+    margin: 0 auto;
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}

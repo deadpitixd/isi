@@ -1,0 +1,7 @@
+{
+    "C_Cpp.default.cppStandard": "gnu++26",
+    "C_Cpp.default.cStandard": "c99",
+    "C_Cpp.inlayHints.autoDeclarationTypes.enabled": true,
+    "C_Cpp.inlayHints.parameterNames.enabled": true,
+    "C_Cpp.inlayHints.referenceOperator.enabled": true
+}
