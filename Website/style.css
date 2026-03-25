@@ -137,3 +137,13 @@ code span {
     border: none;
     display: block;
 }
+
+.dis-nav-button {
+    background-color: #313131;
+    color: #909090;
+    border: 1px solid #444;
+    width: 150px;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-family: "Corbel", sans-serif;
+}
