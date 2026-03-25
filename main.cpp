@@ -6,6 +6,9 @@
 #include <unordered_map>
 #include <variant>
 #include <stdexcept>
+#include <string.h>
+
+std::vector<bool> boolSettings = {false};
 
 const char newLine = '`';
 std::unordered_set<char> nlChars = {';', ' ','(',')','{','}',','};
@@ -333,7 +336,27 @@ void run(std::vector<std::string> code){
 }
 
 int main(int argc, char* argv[]){
-    bool debug = true;
+    bool debug = false;
+    bool *ignUnkFlags = new bool;
+    *ignUnkFlags = false;
+    if (argc > 0){
+        for (int i = 2; i < argc; i++){
+            if (strcmp(argv[i], "--ignore-unk-flags") == 0){
+                *ignUnkFlags = true;
+            }
+            else if (strcmp(argv[i], "--debug") == 0){
+                debug = true;
+            }
+            else
+            {
+                if (!*ignUnkFlags){
+                    std::cerr << "Unknown flag: '" << argv[i] << "'!\n";
+                    return -2;
+                }
+            }
+        }
+    }
+    delete ignUnkFlags;
 
     std::vector<std::string> input;
     std::ifstream inputFile(argv[1]);
