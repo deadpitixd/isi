@@ -1,5 +1,1 @@
-int x = input();
-cout("x is smaller than 524: ", x);
-if (x > 524){
-    cout(x - 524);
-}
+cout(input());
