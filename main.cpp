@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <string.h>
 #include <cctype>
+#include <chrono>
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
 
@@ -221,6 +222,9 @@ int main(int argc, char* argv[]){
             else if (strcmp(argv[i], "--debug") == 0){
                 debug = true;
             }
+            else if (strcmp(argv[i], "--time") == 0){
+                boolSettings[0] = true;
+            }
             else
             {
                 if (!*ignUnkFlags){
@@ -231,6 +235,8 @@ int main(int argc, char* argv[]){
         }
     }
     delete ignUnkFlags;
+
+    auto start = std::chrono::steady_clock::now();
 
     std::vector<std::string> input;
     std::ifstream inputFile(argv[1]);
@@ -258,6 +264,11 @@ int main(int argc, char* argv[]){
     }
 
     run(lexed);
+
+    if(boolSettings[0]){
+        std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
+        std::cout << "\nProject ran successfully in: " << elapsed.count() << " seconds";
+    }
 
     return 0;
 }

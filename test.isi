@@ -1,1 +1,4 @@
-cout(input());
+int x = 3;
+cout(x);
+cout(endl);
+cout(x);
