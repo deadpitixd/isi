@@ -7,8 +7,29 @@
 #include <variant>
 #include <stdexcept>
 #include <string.h>
+#include <cctype>
 
 std::vector<bool> boolSettings = {false};
+
+enum class TokenType {
+    KEYWORD,
+    IDENTIFIER,
+    LITERAL,
+    OPERATOR,
+    SYMBOL
+};
+
+
+struct Token {
+    std::string text;
+    TokenType type;
+};
+bool isKeyword(const std::string& s) {
+    static const std::unordered_set<std::string> kws = {
+        "int", "float", "double", "string", "bool", "cout", "input", "while", "if", "endl", "return"
+    };
+    return kws.contains(s);
+}
 
 const char newLine = '`';
 std::unordered_set<char> nlChars = {';', ' ','(',')','{','}',','};
@@ -25,7 +46,22 @@ std::string typeToString(DataType type) {
     }
 }
 
+std::vector<Token> *cCode;
+int *cI;
+void setErrParam(std::vector<Token> *code, int *i){
+    cCode = code;
+    cI = i;
+}
+void throwError(std::string msg, int errCode, bool runtimeErr=true){
+    std::cerr << msg << ", at token line: " << *cI << " (token: '" << (*cCode)[*cI].text << "')" <<  "\n";
+    std::exit(errCode);
+}
+
 using Value = std::variant<int, double, std::string, bool>;
+
+struct ReturnSignal {
+    Value value;
+};
 
 struct Symbol {
     DataType type;
@@ -42,26 +78,43 @@ private:
         if (std::holds_alternative<double>(val)) return DataType::FLOAT;
         if (std::holds_alternative<std::string>(val)) return DataType::STRING;
         if (std::holds_alternative<bool>(val)) return DataType::BOOL;
-        throw std::runtime_error("Unknown value type");
+        throwError("Unknown value type", -4);
+        return DataType::BOOL;
     }
 
 public:
     Environment(Environment* parent = nullptr) : enclosing(parent) {}
 
-void define(const std::string& name, DataType type, Value initialValue) {
-    if (type == DataType::FLOAT && std::holds_alternative<int>(initialValue)) {
-        initialValue = static_cast<double>(std::get<int>(initialValue));
-    }
-    else if (type == DataType::INT && std::holds_alternative<double>(initialValue)) {
-        initialValue = static_cast<int>(std::get<double>(initialValue));
+    void define(const std::string& name, DataType type, Value initialValue) {
+        if (type == DataType::FLOAT && std::holds_alternative<int>(initialValue)) {
+            initialValue = static_cast<double>(std::get<int>(initialValue));
+        }
+        else if (type == DataType::INT && std::holds_alternative<double>(initialValue)) {
+            initialValue = static_cast<int>(std::get<double>(initialValue));
+        }
+
+        if (getValType(initialValue) != type) {
+            throwError("Type mismatch in declaration of '" + name + "'", -4);
+        }
+        symbols[name] = {type, initialValue};
     }
 
-    if (getValType(initialValue) != type) {
-        throw std::runtime_error("Type mismatch in declaration of '" + name + "'");
+    bool asBool(const Value& val) {
+        if (std::holds_alternative<bool>(val)) return std::get<bool>(val);
+        if (std::holds_alternative<int>(val)) return std::get<int>(val) != 0;
+        if (std::holds_alternative<double>(val)) return std::get<double>(val) != 0.0;
+        return false;
     }
-    symbols[name] = {type, initialValue};
-}
 
+    std::string typeToString(DataType type) {
+        switch (type) {
+            case DataType::INT:    return "int";
+            case DataType::FLOAT:  return "float";
+            case DataType::STRING: return "string";
+            case DataType::BOOL:   return "bool";
+            default:               return "unknown";
+        }
+    }
     std::string stringify(const Value& v) {
         return std::visit([](auto&& arg) -> std::string {
             using T = std::decay_t<decltype(arg)>;
@@ -75,15 +128,44 @@ void define(const std::string& name, DataType type, Value initialValue) {
         }, v);
     }
 
-    Value evaluateExpression(std::vector<std::string> tokens, Environment& env) {
+    Value evaluateExpression(std::vector<Token> tokens, Environment& env) {
         if (tokens.empty()) return 0;
 
-        Value result = env.exists(tokens[0]) ? env.get(tokens[0]) : env.parseLiteral(tokens[0]);
+        auto getAtomValue = [&](size_t& index) -> Value {
+            if (index >= tokens.size()) return 0;
+            Token t = tokens[index];
 
-        size_t i = 1;
+            if (t.text == "input" && index + 1 < tokens.size() && tokens[index + 1].text == "(") {
+                index += 2;
+                while (index < tokens.size() && tokens[index].text != ")") {
+                    index++;
+                }
+                index++; 
+
+                std::string cinInput;
+                if (std::getline(std::cin >> std::ws, cinInput)) {
+                    return env.parseLiteral(cinInput);
+                }
+                return std::string("");
+            }
+
+            if (t.type == TokenType::IDENTIFIER && env.exists(t.text)) {
+                index++;
+                return env.get(t.text);
+            }
+
+            index++;
+            return env.parseLiteral(t.text);
+        };
+
+        size_t i = 0;
+        Value result = getAtomValue(i);
+
         while (i + 1 < tokens.size()) {
-            std::string op = tokens[i];
-            Value nextVal = env.exists(tokens[i + 1]) ? env.get(tokens[i + 1]) : env.parseLiteral(tokens[i + 1]);
+            std::string op = tokens[i].text;
+            i++; 
+
+            Value nextVal = getAtomValue(i);
 
             result = std::visit([&](auto&& l, auto&& r) -> Value {
                 using T1 = std::decay_t<decltype(l)>;
@@ -91,29 +173,30 @@ void define(const std::string& name, DataType type, Value initialValue) {
 
                 if constexpr ((std::is_same_v<T1, int> || std::is_same_v<T1, double>) &&
                               (std::is_same_v<T2, int> || std::is_same_v<T2, double>)) {
-                            
                     double leftVal = static_cast<double>(l);
                     double rightVal = static_cast<double>(r);
-                    double res = 0;
 
-                    if (op == "+") res = leftVal + rightVal;
-                    else if (op == "-") res = leftVal - rightVal;
-                    else if (op == "*") res = leftVal * rightVal;
-                    else if (op == "/") res = (rightVal != 0) ? leftVal / rightVal : 0;
-
-                    if constexpr (std::is_same_v<T1, int> && std::is_same_v<T2, int>) {
-                        if (op != "/") return static_cast<int>(res);
-                    }
-                    return res;
+                    if (op == "+") return leftVal + rightVal;
+                    if (op == "-") return leftVal - rightVal;
+                    if (op == "*") return leftVal * rightVal;
+                    if (op == "/") return (rightVal != 0) ? leftVal / rightVal : 0.0;
+                    if (op == "==") return leftVal == rightVal;
+                    if (op == "!=") return leftVal != rightVal;
+                    if (op == "<")  return leftVal < rightVal;
+                    if (op == ">")  return leftVal > rightVal;
+                    if (op == "<=") return leftVal <= rightVal;
+                    if (op == ">=") return leftVal >= rightVal;
                 } 
                 else if (op == "+") {
                     return env.stringify(l) + env.stringify(r);
                 }
+                else if (op == "==") {
+                    return env.stringify(l) == env.stringify(r);
+                }
                 return 0;
             }, result, nextVal);
-
-            i += 2;
         }
+
         return result;
     }
 
@@ -165,7 +248,7 @@ void define(const std::string& name, DataType type, Value initialValue) {
             }
         
             if (getValType(newValue) != sym.type && sym.type != DataType::STRING) {
-                 throw std::runtime_error("Type mismatch...");
+                throwError("Type mismatch: " + typeToString(sym.type) + " and " + typeToString(getValType(newValue)), -4);
             }
             sym.value = newValue;
             return;
@@ -176,7 +259,7 @@ void define(const std::string& name, DataType type, Value initialValue) {
             return;
         }
 
-        throw std::runtime_error("Undefined variable '" + name + "'");
+        throwError("Undefined variable '" + name + "'", -4);
     }
 
     void printVariable(const std::string& name, Environment& env) {
@@ -208,133 +291,185 @@ void define(const std::string& name, DataType type, Value initialValue) {
         if (enclosing != nullptr) {
             return enclosing->get(name);
         }
-        throw std::runtime_error("Undefined variable '" + name + "'");
+        throwError("Undefined variable '" + name + "'", -4);
+        return enclosing->get(name);
     }
 };
 std::unordered_set<std::string> keywords = {"cout", "int"};
 
-std::vector<std::string> Lexer(std::vector<std::string> in){
-    bool doSpace = true;
-    int i = 0;
-    std::vector<std::string> out;
-    for (const std::string& l : in){
-        out.push_back("");
-        for (int c = 0; c < l.size(); c++){
-            if (l[c] == '"') {
-                doSpace = !doSpace;
-                if (doSpace) {
-                    out.push_back("");
-                    i++;
-                    continue;
-                } else {
-                    continue;
-                }
-            }
-            if (nlChars.find(l[c]) == nlChars.end() || !doSpace){
-                out[i] = out[i] + l[c];
-            }
-            else
-            {
-                if (!(out[out.size()-1] == "")){
-                    out.push_back("");
+std::vector<Token> Lexer(std::vector<std::string> lines) {
+    std::vector<Token> tokens;
+    for (const std::string& line : lines) {
+        int i = 0;
+        while (i < line.length()) {
+            char c = line[i];
+            if (std::isspace(c)) { i++; continue; }
+
+            if (c == '"') {
+                std::string str = "";
+                i++;
+                while (i < line.length() && line[i] != '"') {
+                    str += line[i];
                     i++;
                 }
-                if (l[c] != ' '){
-                    if (l[c] == '('){
-                        out[i]+=l[c];
-                        out.push_back("");
+                tokens.push_back({str, TokenType::LITERAL});
+                i++; continue;
+            }
+            
+            if (c == '{' || c == '}') {
+                tokens.push_back({std::string(1, c), TokenType::SYMBOL});
+                i++;
+                continue;
+            }
+
+            if (std::isalpha(c) || c == '_') {
+                std::string word;
+                while (i < line.length() && (std::isalnum(line[i]) || line[i] == '_')) {
+                    word += line[i]; i++;
+                }
+                TokenType t = isKeyword(word) ? TokenType::KEYWORD : TokenType::IDENTIFIER;
+                tokens.push_back({word, t});
+                continue;
+            }
+
+            if (std::isdigit(c)) {
+                std::string num;
+                while (i < line.length() && (std::isdigit(line[i]) || line[i] == '.')) {
+                    num += line[i]; i++;
+                }
+                tokens.push_back({num, TokenType::LITERAL});
+                continue;
+            }
+
+            std::string op(1, c);
+            if (i + 1 < line.length()) {
+                std::string twoChar = line.substr(i, 2);
+                if (twoChar == "==" || twoChar == "!=" || twoChar == "<=" || twoChar == ">=") {
+                    tokens.push_back({twoChar, TokenType::OPERATOR});
+                    i += 2; continue;
+                }
+            }
+            
+            TokenType t = (ispunct(c) && std::string("+-*/=< >").find(c) != std::string::npos) 
+                        ? TokenType::OPERATOR : TokenType::SYMBOL;
+            tokens.push_back({op, t});
+            i++;
+        }
+    }
+    return tokens;
+}
+
+void execute(const std::vector<Token>& code, Environment& env) {
+    for (int i = 0; i < code.size(); i++) {
+        Token t = code[i];
+
+        if (t.type == TokenType::KEYWORD && (t.text == "int" || t.text == "float" || t.text == "double" || t.text == "string" || t.text == "bool")) {
+            DataType type = (t.text == "int") ? DataType::INT : 
+                            (t.text == "bool") ? DataType::BOOL : 
+                            (t.text == "string") ? DataType::STRING : DataType::FLOAT;
+            i++;
+            std::string name = code[i].text;
+            
+            Value initialVal;
+            if (type == DataType::INT) initialVal = 0;
+            else if (type == DataType::FLOAT) initialVal = 0.0;
+            else if (type == DataType::BOOL) initialVal = false;
+            else initialVal = std::string("");
+
+            env.define(name, type, initialVal);
+
+            if (i + 1 < code.size() && code[i+1].text == "=") {
+                i += 2;
+                std::vector<Token> expr;
+                while (i < code.size() && code[i].text != ";") {
+                    expr.push_back(code[i]);
+                    i++;
+                }
+                env.assign(name, env.evaluateExpression(expr, env));
+            }
+        }
+
+        else if (t.type == TokenType::IDENTIFIER) {
+            if (i + 1 < code.size() && code[i+1].text == "=") {
+                std::string varName = t.text;
+                i += 2;
+                std::vector<Token> expr;
+                while (i < code.size() && code[i].text != ";") {
+                    expr.push_back(code[i]);
+                    i++;
+                }
+                env.assign(varName, env.evaluateExpression(expr, env));
+            }
+        }
+
+        else if (t.text == "cout") {
+            i++;
+            if (i < code.size() && code[i].text == "(") {
+                i++;
+                while (i < code.size() && code[i].text != ")") {
+                    std::vector<Token> expr;
+                    while (i < code.size() && code[i].text != "," && code[i].text != ")") {
+                        expr.push_back(code[i]);
                         i++;
                     }
-                    else
-                        out[i] += l[c];
+                    if (!expr.empty()) {
+                        std::cout << env.stringify(env.evaluateExpression(expr, env));
+                    }
+                    if (code[i].text == ",") i++; 
                 }
             }
         }
-        i++;
-    }
-    return out;
-}
 
-void run(std::vector<std::string> code){
-    Environment env;
-    env.define("endl", DataType::STRING, "\n");
-    for (int i=0; i<code.size();i++){
-        if (keywords.find(code[i]) == keywords.end()){
-
-        }
-        if (code[i] == "int"){
-            i++;
-            if (!env.exists(code[i])){
-                env.define(code[i], DataType::INT, 0);
-            }
-            if (code[i+1] == ";"){
-                i+=2;
-            }
-        }
-        // float is the same as double, it's basically a macro pointing to double.
-        if (code[i] == "double" || code[i] == "float"){
-            i++;
-            if (!env.exists(code[i])){
-                env.define(code[i], DataType::FLOAT, 0.0);
-            }
-            if (code[i+1] == ";"){
-                i+=2;
-            }
-        }
-        if (code[i] == "string"){
-            i++;
-            if (!env.exists(code[i])){
-                env.define(code[i], DataType::STRING, "");
-            }
-            if (code[i+1] == ";")
-            {
-                i+=2;
-            }
-        }
-        if (code[i] == "=") {
-            std::string varName = code[i-1];
-            std::vector<std::string> expressionTokens;
-
-            int j = i + 1; 
-
-            while (j < code.size() && code[j] != ";") {
-                expressionTokens.push_back(code[j]);
-                j++;
-            }
-        
-            Value result = env.evaluateExpression(expressionTokens, env);
-
-            env.assign(varName, result);
-        
-            i = j; 
-        }
-        if (code[i] == "cout"){
-            i++;
-            if (code[i]=="("){
+        else if (t.text == "if") {
+            i++; 
+            if (code[i].text == "(") i++;
+            std::vector<Token> conditionTokens;
+            while (i < code.size() && code[i].text != ")") {
+                conditionTokens.push_back(code[i]);
                 i++;
-                while (code[i] != ")"){
-                    if(code[i]!=","){
-                        if (!env.exists(code[i]))
-                            std::cout << code[i];
-                        else
-                            std::cout << env.valueToString(env.get(code[i]));
-                    }
+            }
+            i++;
+
+            bool shouldExecute = env.asBool(env.evaluateExpression(conditionTokens, env));
+
+            if (i < code.size() && code[i].text == "{") {
+                i++;
+                int start = i;
+                int braceCount = 1;
+                while (i < code.size() && braceCount > 0) {
+                    if (code[i].text == "{") braceCount++;
+                    else if (code[i].text == "}") braceCount--;
                     i++;
                 }
+                int end = i - 1;
+
+                if (shouldExecute) {
+                    std::vector<Token> block(code.begin() + start, code.begin() + end);
+                    execute(block, env);
+                }
+                i--;
             }
         }
-        if (code[i] == "input"){
+        
+        if (t.text == "return") {
             i++;
-            if(code[i]=="("){
+            std::vector<Token> expr;
+            while (i < code.size() && code[i].text != ";") {
+                expr.push_back(code[i]);
                 i++;
-                std::string cinInput;
-                std::getline(std::cin >> std::ws, cinInput);
-                env.assign(code[i], env.parseLiteral(cinInput));
             }
+            throw ReturnSignal{ env.evaluateExpression(expr, env) };
         }
     }
 }
 
+void run(std::vector<Token> code) {
+    int i = 0;
+    setErrParam(&code, &i);
+    Environment env;
+    env.define("endl", DataType::STRING, "\n");
+    execute(code, env);
+}
 int main(int argc, char* argv[]){
     bool debug = false;
     bool *ignUnkFlags = new bool;
@@ -371,15 +506,19 @@ int main(int argc, char* argv[]){
     }
     inputFile.close();
 
-    input = Lexer(input);
+    std::vector<Token> lexed = Lexer(input);
 
     if (debug){
-        for (const auto& l : input) {
-            std::cout << l << "\n";
+        int *i = new int;
+        *i = 0;
+        for (const Token& l : lexed) {
+            std::cout << "[" << *i << "] " << l.text << "\n";
+            *i = *i + 1;
         }
+        delete i;
     }
 
-    run(input);
+    run(lexed);
 
     return 0;
 }

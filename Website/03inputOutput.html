@@ -1,6 +1,7 @@
 <head>
     <title>ISI 03 - Input Output</title>
     <link rel="stylesheet" href="style.css">
+    <script src="func.js"></script>
     <body>
         <div class="content-wrapper">
         <div class="iframe-container">
@@ -18,9 +19,10 @@
                 <span class="b">string</span>
                 <span class="y">x</span>;
                 <br>
-                <span class="b">input</span>(<span class="y">x</span>);
+                <span class="y">x</span> = 
+                <span class="b func">input</span>();
                 <br>
-                <span class="b">cout</span>(<span class="y">x</span>);
+                <span class="b func">cout</span>(<span class="y">x</span>);
                 </code>
             </div class="box">  
         </div>
@@ -33,16 +35,16 @@
             <span class="b">Output</span>: Hello World
         </div>
         <br>
-        First, you define the variable. Then you pass the variable into<br>
-        <span class="b">input</span>(any);
+        First, you define the variable. Then you set the variable to<br>
+        <span class="b func">input</span>();
         <br>
         And then, the user can input anything into the variable.<br>
         After this, the function<br>
-        <span class="b">cout</span>(any);
+        <span class="b func">cout</span>(any);
         <br>
         outputs the data, or variable into the console.
         <br><br>
-        <span class="b">cout</span>()
+        <span class="b func">cout</span>()
         Accepts many inputs in one function, separated by commas.
         <h4>
             Example:
@@ -50,7 +52,7 @@
         <div class="container">
             <div>
                 <code>
-                <span class="b">cout</span>(<span class="y">x</span>,
+                <span class="b func">cout</span>(<span class="y">x</span>,
                 <span class="r">10</span>,
                 <span class="y">"string"</span>,
                 <span class="r">436.412</span>);
