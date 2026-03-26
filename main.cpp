@@ -12,7 +12,7 @@
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
 #include "include/Other.hpp"
-std::vector<bool> boolSettings = {false};
+std::vector<bool> boolSettings = {false, true};
 
 bool isKeyword(const std::string& s) {
     static const std::unordered_set<std::string> kws = {
@@ -281,6 +281,9 @@ int main(int argc, char* argv[]){
             else if (strcmp(argv[i], "--time") == 0){
                 boolSettings[0] = true;
             }
+            else if (strcmp(argv[i], "--no-feedback") == 0){
+                boolSettings[1] = false;
+            }
             else
             {
                 if (!*ignUnkFlags){
@@ -330,7 +333,7 @@ int main(int argc, char* argv[]){
         std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
         std::cout << ISI_Color::b_green << "\nProject ran successfully in: " << ISI_Color::b_blue << elapsed.count() << ISI_Color::reset << " seconds.\n";
     }
-    else
+    else if(boolSettings[1])
     {
         std::cout << "\n" << ISI_Color::b_green << "Project ran successfully.\n" << ISI_Color::reset;
     }
