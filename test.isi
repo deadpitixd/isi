@@ -1,4 +1,5 @@
-int x = abc;
-cout(x);
-cout(endl);
-cout(x);
+int i = 0;
+while (i < 5) {
+    cout(col_b_red, "R", col_yellow, "A", col_b_green, "I", col_blue, "N", col_cyan, "BOW", col_reset, endl);
+    i = i + 1;
+}

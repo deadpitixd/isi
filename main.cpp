@@ -190,6 +190,37 @@ void execute(const std::vector<Token>& code, Environment& env) {
                 i--;
             }
         }
+
+        else if (t.text == "while") {
+            i++; 
+            if (i < code.size() && code[i].text == "(") i++;
+
+            std::vector<Token> conditionTokens;
+            while (i < code.size() && code[i].text != ")") {
+                conditionTokens.push_back(code[i]);
+                i++;
+            }
+            i++;
+        
+            if (i < code.size() && code[i].text == "{") {
+                i++;
+                int start = i;
+                int braceCount = 1;
+                while (i < code.size() && braceCount > 0) {
+                    if (code[i].text == "{") braceCount++;
+                    else if (code[i].text == "}") braceCount--;
+                    i++;
+                }
+                int end = i - 1;
+                std::vector<Token> block(code.begin() + start, code.begin() + end);
+            
+                while (env.asBool(env.evaluateExpression(conditionTokens, env))) {
+                    execute(block, env);
+                }
+
+                i--;
+            }
+        }
         
         if (t.text == "return") {
             i++;
@@ -209,11 +240,32 @@ void run(std::vector<Token> code) {
     Environment env;
     env.define("endl", DataType::STRING, "\n");
     // ansi colors
-    env.define("red", DataType::STRING, "\033[31m");
-    env.define("green", DataType::STRING, "\033[32m");
-    env.define("reset", DataType::STRING, "\033[0m");
+    env.define("col_reset", DataType::STRING, std::string(ISI_Color::reset));
+    env.define("col_clear", DataType::STRING, std::string(ISI_Color::clear));
+
+    // Styles
+    env.define("col_bold", DataType::STRING, std::string(ISI_Color::bold));
+    env.define("col_underline", DataType::STRING, std::string(ISI_Color::underline));
+
+    // Standard Colors
+    env.define("col_red", DataType::STRING, std::string(ISI_Color::red));
+    env.define("col_green", DataType::STRING, std::string(ISI_Color::green));
+    env.define("col_yellow", DataType::STRING, std::string(ISI_Color::yellow));
+    env.define("col_blue", DataType::STRING, std::string(ISI_Color::blue));
+    env.define("col_cyan", DataType::STRING, std::string(ISI_Color::cyan));
+    env.define("col_white", DataType::STRING, std::string(ISI_Color::white));
+
+    // Bright Colors
+    env.define("col_b_red", DataType::STRING, std::string(ISI_Color::b_red));
+    env.define("col_b_green", DataType::STRING, std::string(ISI_Color::b_green));
+    env.define("col_b_cyan", DataType::STRING, std::string(ISI_Color::b_cyan));
+
+    // Backgrounds
+    env.define("col_bg_red", DataType::STRING, std::string(ISI_Color::bg_red));
+    env.define("col_bg_blue", DataType::STRING, std::string(ISI_Color::bg_blue));
     execute(code, env);
 }
+
 int main(int argc, char* argv[]){
     bool debug = false;
     bool *ignUnkFlags = new bool;
@@ -276,11 +328,11 @@ int main(int argc, char* argv[]){
 
     if(boolSettings[0]){
         std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
-        std::cout << ISI_Color::f_b_green << "\nProject ran successfully in: " << ISI_Color::f_blue << elapsed.count() << ISI_Color::reset << " seconds.\n";
+        std::cout << ISI_Color::b_green << "\nProject ran successfully in: " << ISI_Color::b_blue << elapsed.count() << ISI_Color::reset << " seconds.\n";
     }
     else
     {
-        std::cout << "\n" << ISI_Color::f_b_green << "Project ran successfully.\n" << ISI_Color::reset;
+        std::cout << "\n" << ISI_Color::b_green << "Project ran successfully.\n" << ISI_Color::reset;
     }
     return 0;
 }
