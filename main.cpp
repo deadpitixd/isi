@@ -11,6 +11,7 @@
 #include <chrono>
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
+#include "include/Other.hpp"
 
 std::vector<bool> boolSettings = {false};
 
@@ -239,7 +240,12 @@ int main(int argc, char* argv[]){
     auto start = std::chrono::steady_clock::now();
 
     std::vector<std::string> input;
-    std::ifstream inputFile(argv[1]);
+    std::string fileName = argv[1];
+    if (!fileName.ends_with(".isi")){
+        fileName.append(".isi");
+    }
+
+    std::ifstream inputFile(fileName);
     if (!inputFile.is_open()){
         std::cerr << "Failed to open file: '" << argv[1] << "'.\n";
         return 1;
