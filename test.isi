@@ -1,5 +1,8 @@
-int i = 0;
-while (i < 5) {
-    cout(col_b_red, "R", col_yellow, "A", col_b_green, "I", col_blue, "N", col_cyan, "BOW", col_reset, endl);
-    i = i + 1;
+int x;
+while(x != 5)
+{
+    x = x + 1;
+
+    cout(x);
+
 }

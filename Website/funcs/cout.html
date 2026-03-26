@@ -7,7 +7,7 @@
         <div class="iframe-container">
         <iframe src="../templates/menubuttons.html"></iframe>
         </div>
-        <h1><span class="b">cout</span>() UNFINISHED</h1>
+        <h1><span class="b">cout</span>()</h1>
         <p>Allows user to output text into the command line.<br></p>
 
         <h4>
@@ -15,14 +15,43 @@
         </h4>
         <div class="container">
             <code>
-            <span class="b">cout</span>
-            <span class="y">x</span>
-            <span class="p">=</span>
-            <span class="b">input</span>();
+            <span class="b">cout</span>(<span class="y">arguments [any]</span>);
             </code>
         </div>
         <br>
-        It's best to have the variable that gets input be a string, as to not create any type errors.
+        cout() can take as many arguments as it is required, but they must have commas in-beetween them.
+        <br>
+        There also exist ANSI codes built into accessible by calling these variables:
+        <br><br>
+        <div class="container">
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>Variable</th>
+                        <th>Type</th>
+                        <th>Effect</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>endl</td><td>Utility</td><td>New Line</td></tr>
+                    <tr><td>col_reset</td><td>Control</td><td>Reset Styles</td></tr>
+                    <tr><td>col_clear</td><td>Control</td><td>Clear Screen</td></tr>
+                    <tr><td>col_bold</td><td>Style</td><td>Bold Text</td></tr>
+                    <tr><td>col_underline</td><td>Style</td><td>Underline Text</td></tr>
+                    <tr><td>col_red</td><td>Color</td><td>Standard Red</td></tr>
+                    <tr><td>col_green</td><td>Color</td><td>Standard Green</td></tr>
+                    <tr><td>col_yellow</td><td>Color</td><td>Standard Yellow</td></tr>
+                    <tr><td>col_blue</td><td>Color</td><td>Standard Blue</td></tr>
+                    <tr><td>col_cyan</td><td>Color</td><td>Standard Cyan</td></tr>
+                    <tr><td>col_white</td><td>Color</td><td>Standard White</td></tr>
+                    <tr><td>col_b_red</td><td>Color</td><td>Bright Red</td></tr>
+                    <tr><td>col_b_green</td><td>Color</td><td>Bright Green</td></tr>
+                    <tr><td>col_b_cyan</td><td>Color</td><td>Bright Cyan</td></tr>
+                    <tr><td>col_bg_red</td><td>Background</td><td>Red Background</td></tr>
+                    <tr><td>col_bg_blue</td><td>Background</td><td>Blue Background</td></tr>
+                </tbody>
+            </table>
+        </div>
         <br>
         
         </div>
