@@ -12,12 +12,11 @@
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
 #include "include/Other.hpp"
-
 std::vector<bool> boolSettings = {false};
 
 bool isKeyword(const std::string& s) {
     static const std::unordered_set<std::string> kws = {
-        "int", "float", "double", "string", "bool", "cout", "input", "while", "if", "endl", "return"
+        "int", "float", "double", "string", "bool", "cout", "input", "while", "if", "return"
     };
     return kws.contains(s);
 }
@@ -209,6 +208,10 @@ void run(std::vector<Token> code) {
     setErrParam(&code, &i);
     Environment env;
     env.define("endl", DataType::STRING, "\n");
+    // ansi colors
+    env.define("red", DataType::STRING, "\033[31m");
+    env.define("green", DataType::STRING, "\033[32m");
+    env.define("reset", DataType::STRING, "\033[0m");
     execute(code, env);
 }
 int main(int argc, char* argv[]){
@@ -273,9 +276,11 @@ int main(int argc, char* argv[]){
 
     if(boolSettings[0]){
         std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
-        std::cout << "\nProject ran successfully in: " << elapsed.count() << " seconds";
+        std::cout << ISI_Color::f_b_green << "\nProject ran successfully in: " << ISI_Color::f_blue << elapsed.count() << ISI_Color::reset << " seconds.\n";
     }
-    // for linux systems
-    std::cout << std::endl;
+    else
+    {
+        std::cout << "\n" << ISI_Color::f_b_green << "Project ran successfully.\n" << ISI_Color::reset;
+    }
     return 0;
 }
