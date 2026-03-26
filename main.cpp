@@ -275,6 +275,7 @@ int main(int argc, char* argv[]){
         std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;
         std::cout << "\nProject ran successfully in: " << elapsed.count() << " seconds";
     }
-
+    // for linux systems
+    std::cout << std::endl;
     return 0;
 }
