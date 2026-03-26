@@ -276,5 +276,9 @@ int main(int argc, char* argv[]){
         std::cout << "\nProject ran successfully in: " << elapsed.count() << " seconds";
     }
 
+    #ifdef linux
+    std::cout << std::endl;
+    #endif
+
     return 0;
 }
