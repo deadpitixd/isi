@@ -150,16 +150,25 @@ void execute(const std::vector<Token>& code, Environment& env) {
                 std::vector<Token> expr;
                 int parenCount = 0;
 
-                while (i < code.size() && (code[i].text != "," || parenCount > 0) && code[i].text != ")") {
+                while (i < code.size()) {
                     if (code[i].text == "(") parenCount++;
-                    if (code[i].text == ")") parenCount--;
+                    if (code[i].text == ")") {
+                        if (parenCount == 0) break;
+                        parenCount--;
+                    }
+                    if (code[i].text == "," && parenCount == 0) break;
+
                     expr.push_back(code[i]);
                     i++;
                 }
+
                 if (!expr.empty()) {
                     std::cout << env.stringify(env.evaluateExpression(expr, env));
                 }
-                if (i < code.size() && code[i].text == ",") i++; 
+
+                if (i < code.size() && code[i].text == ",") {
+                    i++; 
+                }
             }
         }
     }
