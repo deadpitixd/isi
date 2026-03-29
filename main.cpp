@@ -14,7 +14,7 @@ namespace fs = std::filesystem;
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
 #include "include/Other.hpp"
-std::vector<bool> boolSettings = {false, true};
+std::vector<bool> boolSettings = {false, true, false};
 #include <filesystem>
 namespace fs = std::filesystem;
 
@@ -225,7 +225,7 @@ void execute(const std::vector<Token>& code, Environment& env){
                 while (i < code.size() && code[i].text != ")") {
                     std::vector<Token> expr;
                     int parenCount = 0;
-                
+
                     while (i < code.size()) {
                         if (code[i].text == "(") parenCount++;
                         if (code[i].text == ")") {
@@ -233,15 +233,15 @@ void execute(const std::vector<Token>& code, Environment& env){
                             parenCount--;
                         }
                         if (code[i].text == "," && parenCount == 0) break;
-                    
+
                         expr.push_back(code[i]);
                         i++;
                     }
-                
+
                     if (!expr.empty()) {
                         std::cout << env.stringify(env.evaluateExpression(expr, env));
                     }
-                
+
                     if (i < code.size() && code[i].text == ",") {
                         i++; 
                     }
@@ -252,22 +252,22 @@ void execute(const std::vector<Token>& code, Environment& env){
             i++; 
             if (i < (int)code.size()) {
                 std::string rawName = code[i].text;
-            
+
                 if (rawName.front() == '"' || rawName.front() == '\'') {
                     rawName = rawName.substr(1, rawName.size() - 2);
                 }
-            
+
                 if (rawName.size() > 4 && rawName.ends_with(".isi")) {
                     rawName = rawName.substr(0, rawName.size() - 4);
                 }
-            
+
                 std::vector<std::string> potentialPaths = {
                     rawName + LIB_EXT,
                     "stl/" + rawName + LIB_EXT,
                     rawName + ".isi",
                     "stl/" + rawName + ".isi"
                 };
-            
+
                 bool found = false;
                 for (const std::string& path : potentialPaths) {
                     if (fs::exists(path)) {
@@ -291,7 +291,7 @@ void execute(const std::vector<Token>& code, Environment& env){
                                 std::string line;
                                 while (std::getline(file, line)) lines.push_back(line);
                                 file.close();
-                            
+
                                 std::vector<Token> includedTokens = Lexer(lines);
                                 execute(includedTokens, env);
                             }
@@ -300,7 +300,7 @@ void execute(const std::vector<Token>& code, Environment& env){
                         break;
                     }
                 }
-            
+
                 if (!found) {
                     throwError("Include failed: Could not find '" + rawName + "' in root or stl/ folder.", -5);
                 }

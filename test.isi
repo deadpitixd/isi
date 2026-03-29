@@ -1,3 +1,9 @@
 include "os"
 
-cout(exists("test.txt"));
+string x = "World";
+string z = "!";
+
+cout(exists("test.txt"),endl);
+if (exists("test.txt")){
+    cout(col_red, "Hello ", x, z, col_reset, endl);
+}
