@@ -1,3 +1,5 @@
-include "math"
+include "os"
 
-cout(sqrt(2));
+if (exists("test.txt") == true){
+    cout("test.txt exists");
+}

@@ -113,7 +113,8 @@ public:
                 return arg;
             } else if constexpr (std::is_same_v<T, bool>) {
                 return arg ? "true" : "false";
-            } else {
+            } else if constexpr (std::is_same_v<T, std::monostate>) { return "null"; } 
+            else {
                 return std::to_string(arg);
             }
         }, v);
@@ -250,7 +251,7 @@ public:
                 return arg ? "true" : "false";
             } else if constexpr (std::is_same_v<T, std::string>) {
                 return arg;
-            } else {
+            } else if constexpr (std::is_same_v<T, std::monostate>) { return "null"; } else {
                 // handles int and double
                 return std::to_string(arg);
             }
@@ -280,16 +281,6 @@ public:
         }
 
         throwError("Undefined variable '" + name + "'", -4);
-    }
-
-    void printVariable(const std::string& name, Environment& env) {
-        Value val = env.get(name);
-
-        std::visit([](auto&& arg) {
-            std::cout << arg;
-        }, val);
-
-        std::cout << std::endl;
     }
 
     bool exists(const std::string& name) {
@@ -325,6 +316,22 @@ double valueToFloat(const Value& val) {
         return std::get<bool>(val) ? 1.0 : 0.0;
     }
     return 0.0;
+}
+
+bool valueToBool(const Value& val) {
+    if (std::holds_alternative<bool>(val)) {
+        return std::get<bool>(val);
+    } 
+    else if (std::holds_alternative<int>(val)) {
+        return std::get<int>(val) != 0;
+    } 
+    else if (std::holds_alternative<double>(val)) {
+        return std::get<double>(val) != 0.0;
+    } 
+    else if (std::holds_alternative<std::string>(val)) {
+        return !std::get<std::string>(val).empty();
+    }
+    return false;
 }
 
 std::string valueToString(const Value& val) {

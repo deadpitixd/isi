@@ -21,6 +21,6 @@ struct Token {
 
 enum class DataType { INT, FLOAT, STRING, BOOL };
 
-using Value = std::variant<int, double, std::string, bool>;
+using Value = std::variant<std::monostate, int, double, std::string, bool>;
 
 #endif
