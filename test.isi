@@ -1,5 +1,3 @@
 include "os"
 
-if (exists("test.txt") == true){
-    cout("test.txt exists");
-}
+cout(exists("test.txt"));
