@@ -148,10 +148,11 @@ void execute(const std::vector<Token>& code, Environment& env) {
                 std::string name = code[i].text;
                 
                 Value initialVal;
-                if (type == DataType::INT) initialVal = 0;
-                else if (type == DataType::FLOAT) initialVal = 0.0;
+                if (type == DataType::INT) initialVal = (int)0;
+                else if (type == DataType::FLOAT) initialVal = (double)0.0;
                 else if (type == DataType::BOOL) initialVal = false;
-                else initialVal = std::string("");
+                else initialVal = std::string(""); 
+
 
                 env.define(name, type, initialVal);
 

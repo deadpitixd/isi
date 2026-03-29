@@ -1,7 +1,7 @@
-int add(int x, int y){
-    x = 5;
-    return x + y;
+int add(float a, float b){
+    return a + b;
 }
 
-int a = add(3,5);
-cout(a, endl);
+int a = 10;
+
+cout(add(a,5), endl);

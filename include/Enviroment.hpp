@@ -24,8 +24,13 @@ private:
         if (std::holds_alternative<double>(val)) return DataType::FLOAT;
         if (std::holds_alternative<std::string>(val)) return DataType::STRING;
         if (std::holds_alternative<bool>(val)) return DataType::BOOL;
-        throwError("Unknown value type", -4);
-        return DataType::BOOL;
+
+        if (val.valueless_by_exception()) {
+            throwError("Internal Error: Value is in an invalid state", -4);
+        }
+
+        throwError("Unknown value type during type check", -4);
+        return DataType::INT;
     }
 
 public:
