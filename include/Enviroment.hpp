@@ -19,7 +19,11 @@ private:
     std::unordered_map<std::string, Symbol> symbols;
     Environment* enclosing = nullptr;
 
-    DataType getValType(const Value& val) {
+public:
+    std::unordered_map<std::string, Function> functionTable;
+    Environment(Environment* parent = nullptr) : enclosing(parent) {}
+
+    static DataType getValType(const Value& val) {
         if (std::holds_alternative<int>(val)) return DataType::INT;
         if (std::holds_alternative<double>(val)) return DataType::FLOAT;
         if (std::holds_alternative<std::string>(val)) return DataType::STRING;
@@ -32,10 +36,6 @@ private:
         throwError("Unknown value type during type check", -4);
         return DataType::INT;
     }
-
-public:
-    std::unordered_map<std::string, Function> functionTable;
-    Environment(Environment* parent = nullptr) : enclosing(parent) {}
 
     void addNativeFunction(std::string name, NativeFunction handler) {
         Function func;
@@ -97,7 +97,7 @@ public:
         return false;
     }
 
-    std::string typeToString(DataType type) {
+    static std::string typeToString(DataType type) {
         switch (type) {
             case DataType::INT:    return "int";
             case DataType::FLOAT:  return "float";
@@ -345,6 +345,10 @@ std::string valueToString(const Value& val) {
         return std::get<bool>(val) ? "true" : "false";
     }
     return "";
+}
+
+std::string valueTypeToStr(const Value& val){
+    return Environment::typeToString(Environment::getValType(val));
 }
 
 #endif

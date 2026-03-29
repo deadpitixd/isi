@@ -3,17 +3,29 @@
 
 Value funcExists(std::vector<Value> args) {
     if (args.empty()) return false;
+    if (valueTypeToStr(args[0]) != "string")
+    { 
+        throwError("exists() only takes in strings!", -10); 
+    }
     std::string path = valueToString(args[0]);
     return std::filesystem::exists(path);
 }
 
 Value funcRemove(std::vector<Value> args) {
     if (args.empty()) return false;
+    if (valueTypeToStr(args[0]) != "string")
+    { 
+        throwError("remove() only takes in strings!", -10); 
+    }
     std::string path = valueToString(args[0]);
     return std::filesystem::remove(path);
 }
 
 Value funcSystem(std::vector<Value> args) {
+    if (valueTypeToStr(args[0]) != "string")
+    { 
+        throwError("system() only takes in strings!", -10); 
+    }
     system(valueToString(args[0]).c_str());
     return std::monostate {};
 }
