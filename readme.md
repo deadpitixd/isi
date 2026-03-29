@@ -49,7 +49,7 @@ Value funcSqrt(std::vector<Value> args) {
 Here, the code checks if the arguments are empty.
 <br>If they aren't,<br>
 first, the code turns argument 1 into a float.
-> valueToFloat() is from the Enviroment.hpp header.
+> valueToFloat() is from the Environment.hpp header.
 <br> Theres also valueToString().
 
 After that, it returns the square root of args[0].
@@ -82,9 +82,12 @@ extern "C" {
 }
 ```
 
-Then you compile it into a dll or so using this (for gdb):
+Then you compile it into a dll or so using this (for g++):
 
-> g++ -shared -fPIC -std=c++20 -I. file.cpp -o file.dll
+> Windows g++ -shared -fPIC -std=c++20 -I. file.cpp -o file.dll
+
+
+> Linux: g++ -shared -fPIC -std=c++20 -I. file.cpp -o file.so
 
 To use it, you just use:
 
