@@ -1,4 +1,3 @@
 include "math"
 
-cout(sqrt(2),endl);
-cout(pow(2), endl);
+cout(sqrt(2));
