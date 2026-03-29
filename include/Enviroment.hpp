@@ -37,13 +37,31 @@ public:
     std::unordered_map<std::string, Function> functionTable;
     Environment(Environment* parent = nullptr) : enclosing(parent) {}
 
+    void addNativeFunction(std::string name, NativeFunction handler) {
+        Function func;
+        func.name = name;
+        func.isNative = true;
+        func.nativeHandler = handler;
+
+        functionTable[name] = func;
+    }
+
     Value callFunction(std::string name, std::vector<Value> args, Environment& parentEnv) {
-        if (functionTable.find(name) == functionTable.end()) {
+        if (!functionTable.contains(name)) {
             throwError("Function " + name + " not found", -11);
         }
 
         Function& func = functionTable[name];
+
+        if (func.isNative) {
+            if (!func.nativeHandler) throwError("Native handler is null", -11);
+            return func.nativeHandler(args);
+        }
+
         Environment localEnv(&parentEnv);
+        if (args.size() != func.params.size()) {
+            throwError("Argument mismatch for " + name, -11);
+        }
 
         for (size_t j = 0; j < func.params.size(); j++) {
             localEnv.define(func.params[j].name, func.params[j].type, args[j]);
@@ -108,7 +126,7 @@ public:
         if (index >= tokens.size()) return 0;
         Token t = tokens[index];
 
-        if (t.type == TokenType::IDENTIFIER && index + 1 < tokens.size() && tokens[index + 1].text == "(") {
+        if (t.type == isiTokenType::IDENTIFIER && index + 1 < tokens.size() && tokens[index + 1].text == "(") {
             std::string funcName = t.text;
             index += 2;
 
@@ -151,7 +169,7 @@ public:
                 return std::string("");
         }
 
-        if (t.type == TokenType::IDENTIFIER && env.exists(t.text)) {
+        if (t.type == isiTokenType::IDENTIFIER && env.exists(t.text)) {
             index++;
             return env.get(t.text);
         }

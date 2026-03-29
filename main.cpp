@@ -9,14 +9,51 @@
 #include <string.h>
 #include <cctype>
 #include <chrono>
+#include <filesystem>
+namespace fs = std::filesystem;
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
 #include "include/Other.hpp"
 std::vector<bool> boolSettings = {false, true};
+#include <filesystem>
+namespace fs = std::filesystem;
+
+#ifdef _WIN32
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    typedef HMODULE LibHandle;
+    #define LIB_LOAD(path) LoadLibraryA(path)
+    #define LIB_FUNC(lib, name) GetProcAddress(lib, name)
+    inline const std::string LIB_EXT = ".dll";
+#else
+    #include <dlfcn.h>
+    typedef void* LibHandle;
+    #define LIB_LOAD(path) dlopen(path, RTLD_LAZY)
+    #define LIB_FUNC(lib, name) dlsym(lib, name)
+    inline const std::string LIB_EXT = ".so";
+#endif
+
+typedef void (*ISIRegisterFn)(Environment&);
+
+void loadPlugin(std::string path, Environment& env) {
+    LibHandle lib = LIB_LOAD(path.c_str());
+    if (!lib) {
+        std::cerr << "Could not load: " << path << std::endl;
+        return;
+    }
+
+    ISIRegisterFn reg = (ISIRegisterFn)LIB_FUNC(lib, "register_plugin");
+
+    if (reg) {
+        reg(env); 
+    } else {
+        std::cerr << "Plugin " << path << " missing 'register_plugin' export!" << std::endl;
+    }
+}
 
 bool isKeyword(const std::string& s) {
     static const std::unordered_set<std::string> kws = {
-        "void","int", "float", "double", "string", "bool", "cout", "input", "while", "if", "return"
+        "void","int", "float", "double", "string", "bool", "cout", "input", "while", "if", "return", "include"
     };
     return kws.contains(s);
 }
@@ -52,12 +89,12 @@ std::vector<Token> Lexer(std::vector<std::string> lines) {
                     str += line[i];
                     i++;
                 }
-                tokens.push_back({str, TokenType::LITERAL});
+                tokens.push_back({str, isiTokenType::LITERAL});
                 i++; continue;
             }
             
             if (c == '{' || c == '}') {
-                tokens.push_back({std::string(1, c), TokenType::SYMBOL});
+                tokens.push_back({std::string(1, c), isiTokenType::SYMBOL});
                 i++;
                 continue;
             }
@@ -67,7 +104,7 @@ std::vector<Token> Lexer(std::vector<std::string> lines) {
                 while (i < line.length() && (std::isalnum(line[i]) || line[i] == '_')) {
                     word += line[i]; i++;
                 }
-                TokenType t = isKeyword(word) ? TokenType::KEYWORD : TokenType::IDENTIFIER;
+                isiTokenType t = isKeyword(word) ? isiTokenType::KEYWORD : isiTokenType::IDENTIFIER;
                 tokens.push_back({word, t});
                 continue;
             }
@@ -77,7 +114,7 @@ std::vector<Token> Lexer(std::vector<std::string> lines) {
                 while (i < line.length() && (std::isdigit(line[i]) || line[i] == '.')) {
                     num += line[i]; i++;
                 }
-                tokens.push_back({num, TokenType::LITERAL});
+                tokens.push_back({num, isiTokenType::LITERAL});
                 continue;
             }
 
@@ -85,13 +122,13 @@ std::vector<Token> Lexer(std::vector<std::string> lines) {
             if (i + 1 < line.length()) {
                 std::string twoChar = line.substr(i, 2);
                 if (twoChar == "==" || twoChar == "!=" || twoChar == "<=" || twoChar == ">=") {
-                    tokens.push_back({twoChar, TokenType::OPERATOR});
+                    tokens.push_back({twoChar, isiTokenType::OPERATOR});
                     i += 2; continue;
                 }
             }
             
-            TokenType t = (ispunct(c) && std::string("+-*/=< >").find(c) != std::string::npos) 
-                        ? TokenType::OPERATOR : TokenType::SYMBOL;
+            isiTokenType t = (ispunct(c) && std::string("+-*/=< >").find(c) != std::string::npos) 
+                        ? isiTokenType::OPERATOR : isiTokenType::SYMBOL;
             tokens.push_back({op, t});
             i++;
         }
@@ -99,11 +136,11 @@ std::vector<Token> Lexer(std::vector<std::string> lines) {
     return tokens;
 }
 
-void execute(const std::vector<Token>& code, Environment& env) {
+void execute(const std::vector<Token>& code, Environment& env){
     for (int i = 0; i < code.size(); i++) {
         Token t = code[i];
 
-            if (t.type == TokenType::KEYWORD && (t.text == "int" || t.text == "float" || t.text == "double" || t.text == "string" || t.text == "bool" || t.text == "void")) {
+            if (t.type == isiTokenType::KEYWORD && (t.text == "int" || t.text == "float" || t.text == "double" || t.text == "string" || t.text == "bool" || t.text == "void")) {
             
             if (i + 2 < code.size() && code[i+2].text == "(") {
                 Function newFunc;
@@ -168,7 +205,7 @@ void execute(const std::vector<Token>& code, Environment& env) {
             }
         }
 
-        else if (t.type == TokenType::IDENTIFIER) {
+        else if (t.type == isiTokenType::IDENTIFIER) {
             if (i + 1 < code.size() && code[i+1].text == "=") {
                 std::string varName = t.text;
                 i += 2;
@@ -208,6 +245,53 @@ void execute(const std::vector<Token>& code, Environment& env) {
                 if (i < code.size() && code[i].text == ",") {
                     i++; 
                 }
+            }
+        }
+    }
+    else if (t.text == "include") {
+        i++; 
+        if (i < (int)code.size()) {
+            std::string rawName = code[i].text;
+            
+            if (rawName.front() == '"' || rawName.front() == '\'') {
+                rawName = rawName.substr(1, rawName.size() - 2);
+            }
+        
+            if (rawName.size() > 4 && rawName.ends_with(".isi")) {
+                rawName = rawName.substr(0, rawName.size() - 4);
+            }
+        
+            std::string binaryPath = rawName + LIB_EXT;
+            std::string scriptPath = rawName + ".isi";
+        
+            if (fs::exists(binaryPath)) {
+                //std::cout << "DEBUG: Found binary " << binaryPath << std::endl;
+                LibHandle lib = LIB_LOAD(binaryPath.c_str());
+                if (lib) {
+                    auto regFn = (ISIRegisterFn)LIB_FUNC(lib, "register_plugin");
+
+                    if (regFn) {
+                        regFn(env); 
+                    } else {
+                        std::cerr << "Plugin Error: " << binaryPath << " is missing 'register_plugin'\n";
+                    }
+                } else {
+                    std::cerr << "Linker Error: Failed to load " << binaryPath << "\n";
+                }
+            }
+            else if (fs::exists(scriptPath)) {
+                std::ifstream file(scriptPath);
+                if (file.is_open()) {
+                    std::vector<std::string> lines;
+                    std::string line;
+                    while (std::getline(file, line)) lines.push_back(line);
+                    file.close();
+
+                    std::vector<Token> includedTokens = Lexer(lines);
+                    execute(includedTokens, env);
+                }
+            } else {
+                throwError("Include failed: Could not find '" + binaryPath + "' or '" + scriptPath + "'", -5);
             }
         }
     }
@@ -283,7 +367,7 @@ void execute(const std::vector<Token>& code, Environment& env) {
             }
             throw ReturnSignal{ env.evaluateExpression(expr, env) };
         }
-        else if (t.type == TokenType::KEYWORD && (t.text == "int" || t.text == "void" /* etc */)) {
+        else if (t.type == isiTokenType::KEYWORD && (t.text == "int" || t.text == "void" /* etc */)) {
             if (i + 2 < code.size() && code[i+2].text == "(") {
                 Function newFunc;
                 newFunc.isVoid = (t.text == "void");
@@ -313,7 +397,7 @@ void execute(const std::vector<Token>& code, Environment& env) {
                 }
             }
         }
-        else if (t.type == TokenType::IDENTIFIER && i + 1 < code.size() && code[i+1].text == "(") {
+        else if (t.type == isiTokenType::IDENTIFIER && i + 1 < code.size() && code[i+1].text == "(") {
             std::string funcName = t.text;
             i += 2;
 
@@ -352,6 +436,15 @@ void run(std::vector<Token> code) {
     int i = 0;
     setErrParam(&code, &i);
     Environment env;
+
+    for (auto const& [name, handler] : getGlobalNativeRegistry()) {
+        Function f;
+        f.name = name;
+        f.isNative = true;
+        f.nativeHandler = handler;
+        env.functionTable[name] = f;
+    }
+
     env.define("endl", DataType::STRING, "\n");
     // ansi colors
     env.define("col_reset", DataType::STRING, std::string(ISI_Color::reset));

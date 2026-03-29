@@ -5,7 +5,7 @@
 #include <variant>
 #include <string>
 
-enum class TokenType {
+enum class isiTokenType {
     KEYWORD,
     IDENTIFIER,
     LITERAL,
@@ -16,7 +16,7 @@ enum class TokenType {
 
 struct Token {
     std::string text;
-    TokenType type;
+    isiTokenType type;
 };
 
 enum class DataType { INT, FLOAT, STRING, BOOL };

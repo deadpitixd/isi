@@ -1,7 +1,9 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <functional>
 #include <string>
+#include <map>
 #include "Value.hpp"
 
 namespace ISI_Color {
@@ -54,12 +56,30 @@ struct Parameter {
     DataType type;
 };
 
+using NativeFunction = std::function<Value(std::vector<Value>)>;
+
+using NativeHandler = std::function<Value(std::vector<Value>)>;
+
+inline std::map<std::string, NativeHandler>& getGlobalNativeRegistry() {
+    static std::map<std::string, NativeHandler> registry;
+    return registry;
+}
+
+struct NativeRegister {
+    NativeRegister(std::string name, NativeHandler handler) {
+        getGlobalNativeRegistry()[name] = handler;
+    }
+};
+
 struct Function {
     std::string name;
     DataType returnType;
     std::vector<Parameter> params;
     std::vector<Token> body;
     bool isVoid = false;
+
+    bool isNative = false; 
+    NativeFunction nativeHandler = nullptr;
 };
 
 struct ReturnSignal {
