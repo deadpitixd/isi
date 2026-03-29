@@ -103,29 +103,67 @@ void execute(const std::vector<Token>& code, Environment& env) {
     for (int i = 0; i < code.size(); i++) {
         Token t = code[i];
 
-        if (t.type == TokenType::KEYWORD && (t.text == "int" || t.text == "float" || t.text == "double" || t.text == "string" || t.text == "bool")) {
-            DataType type = (t.text == "int") ? DataType::INT : 
-                            (t.text == "bool") ? DataType::BOOL : 
-                            (t.text == "string") ? DataType::STRING : DataType::FLOAT;
-            i++;
-            std::string name = code[i].text;
+            if (t.type == TokenType::KEYWORD && (t.text == "int" || t.text == "float" || t.text == "double" || t.text == "string" || t.text == "bool" || t.text == "void")) {
             
-            Value initialVal;
-            if (type == DataType::INT) initialVal = 0;
-            else if (type == DataType::FLOAT) initialVal = 0.0;
-            else if (type == DataType::BOOL) initialVal = false;
-            else initialVal = std::string("");
-
-            env.define(name, type, initialVal);
-
-            if (i + 1 < code.size() && code[i+1].text == "=") {
-                i += 2;
-                std::vector<Token> expr;
-                while (i < code.size() && code[i].text != ";") {
-                    expr.push_back(code[i]);
-                    i++;
+            if (i + 2 < code.size() && code[i+2].text == "(") {
+                Function newFunc;
+                newFunc.isVoid = (t.text == "void");
+                newFunc.name = code[i+1].text;
+                i += 3;
+                
+                while (i < code.size() && code[i].text != ")") {
+                    DataType pType = DataType::INT;
+                    if (code[i].text == "string") pType = DataType::STRING;
+                    else if (code[i].text == "float" || code[i].text == "double") pType = DataType::FLOAT;
+                    else if (code[i].text == "bool") pType = DataType::BOOL;
+                    
+                    newFunc.params.push_back({code[i+1].text, pType});
+                    i += 2;
+                    if (i < code.size() && code[i].text == ",") i++;
                 }
-                env.assign(name, env.evaluateExpression(expr, env));
+                i++;
+                
+                if (i < code.size() && code[i].text == "{") {
+                    i++;
+                    int start = i;
+                    int braceCount = 1;
+                    while (i < code.size() && braceCount > 0) {
+                        if (code[i].text == "{") braceCount++;
+                        else if (code[i].text == "}") braceCount--;
+                        i++;
+                    }
+                    newFunc.body = std::vector<Token>(code.begin() + start, code.begin() + i - 1);
+                    env.functionTable[newFunc.name] = newFunc;
+                    
+                    i--; 
+                }
+            } 
+            else {
+                if (t.text == "void") throwError("Cannot create a variable of type void", -10);
+
+                DataType type = (t.text == "int") ? DataType::INT : 
+                                (t.text == "bool") ? DataType::BOOL : 
+                                (t.text == "string") ? DataType::STRING : DataType::FLOAT;
+                i++;
+                std::string name = code[i].text;
+                
+                Value initialVal;
+                if (type == DataType::INT) initialVal = 0;
+                else if (type == DataType::FLOAT) initialVal = 0.0;
+                else if (type == DataType::BOOL) initialVal = false;
+                else initialVal = std::string("");
+
+                env.define(name, type, initialVal);
+
+                if (i + 1 < code.size() && code[i+1].text == "=") {
+                    i += 2;
+                    std::vector<Token> expr;
+                    while (i < code.size() && code[i].text != ";") {
+                        expr.push_back(code[i]);
+                        i++;
+                    }
+                    env.assign(name, env.evaluateExpression(expr, env));
+                }
             }
         }
 
@@ -378,7 +416,7 @@ int main(int argc, char* argv[]){
     }
     delete ignUnkFlags;
 
-    std::chrono::_V2::steady_clock::time_point start = std::chrono::steady_clock::now();
+    std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
 
     std::vector<std::string> input;
     std::string fileName = argv[1];
