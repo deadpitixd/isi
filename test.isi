@@ -1,5 +1,4 @@
-include "test2"
+include "math"
 
-int a = 10;
-
-cout(test(),endl);
+cout(sqrt(2),endl);
+cout(pow(2), endl);

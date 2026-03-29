@@ -252,46 +252,57 @@ void execute(const std::vector<Token>& code, Environment& env){
         i++; 
         if (i < (int)code.size()) {
             std::string rawName = code[i].text;
-            
+
             if (rawName.front() == '"' || rawName.front() == '\'') {
                 rawName = rawName.substr(1, rawName.size() - 2);
             }
-        
+
             if (rawName.size() > 4 && rawName.ends_with(".isi")) {
                 rawName = rawName.substr(0, rawName.size() - 4);
             }
-        
-            std::string binaryPath = rawName + LIB_EXT;
-            std::string scriptPath = rawName + ".isi";
-        
-            if (fs::exists(binaryPath)) {
-                //std::cout << "DEBUG: Found binary " << binaryPath << std::endl;
-                LibHandle lib = LIB_LOAD(binaryPath.c_str());
-                if (lib) {
-                    auto regFn = (ISIRegisterFn)LIB_FUNC(lib, "register_plugin");
 
-                    if (regFn) {
-                        regFn(env); 
-                    } else {
-                        std::cerr << "Plugin Error: " << binaryPath << " is missing 'register_plugin'\n";
+            std::vector<std::string> potentialPaths = {
+                rawName + LIB_EXT,
+                "stl/" + rawName + LIB_EXT,
+                rawName + ".isi",
+                "stl/" + rawName + ".isi"
+            };
+
+            bool found = false;
+            for (const std::string& path : potentialPaths) {
+                if (fs::exists(path)) {
+                    if (path.ends_with(LIB_EXT)) {
+                        LibHandle lib = LIB_LOAD(path.c_str());
+                        if (lib) {
+                            auto regFn = (ISIRegisterFn)LIB_FUNC(lib, "register_plugin");
+                            if (regFn) {
+                                regFn(env);
+                            } else {
+                                std::cerr << "Plugin Error: " << path << " is missing 'register_plugin'\n";
+                            }
+                        } else {
+                            std::cerr << "Linker Error: Failed to load " << path << "\n";
+                        }
+                    } 
+                    else {
+                        std::ifstream file(path);
+                        if (file.is_open()) {
+                            std::vector<std::string> lines;
+                            std::string line;
+                            while (std::getline(file, line)) lines.push_back(line);
+                            file.close();
+
+                            std::vector<Token> includedTokens = Lexer(lines);
+                            execute(includedTokens, env);
+                        }
                     }
-                } else {
-                    std::cerr << "Linker Error: Failed to load " << binaryPath << "\n";
+                    found = true;
+                    break;
                 }
             }
-            else if (fs::exists(scriptPath)) {
-                std::ifstream file(scriptPath);
-                if (file.is_open()) {
-                    std::vector<std::string> lines;
-                    std::string line;
-                    while (std::getline(file, line)) lines.push_back(line);
-                    file.close();
 
-                    std::vector<Token> includedTokens = Lexer(lines);
-                    execute(includedTokens, env);
-                }
-            } else {
-                throwError("Include failed: Could not find '" + binaryPath + "' or '" + scriptPath + "'", -5);
+            if (!found) {
+                throwError("Include failed: Could not find '" + rawName + "' in root or stl/ folder.", -5);
             }
         }
     }

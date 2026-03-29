@@ -316,4 +316,28 @@ public:
     }
 };
 
+double valueToFloat(const Value& val) {
+    if (std::holds_alternative<double>(val)) {
+        return std::get<double>(val);
+    } else if (std::holds_alternative<int>(val)) {
+        return static_cast<double>(std::get<int>(val));
+    } else if (std::holds_alternative<bool>(val)) {
+        return std::get<bool>(val) ? 1.0 : 0.0;
+    }
+    return 0.0;
+}
+
+std::string valueToString(const Value& val) {
+    if (std::holds_alternative<std::string>(val)) {
+        return std::get<std::string>(val);
+    } else if (std::holds_alternative<int>(val)) {
+        return std::to_string(std::get<int>(val));
+    } else if (std::holds_alternative<double>(val)) {
+        return std::to_string(std::get<double>(val));
+    } else if (std::holds_alternative<bool>(val)) {
+        return std::get<bool>(val) ? "true" : "false";
+    }
+    return "";
+}
+
 #endif
