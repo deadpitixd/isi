@@ -16,7 +16,7 @@ std::vector<bool> boolSettings = {false, true};
 
 bool isKeyword(const std::string& s) {
     static const std::unordered_set<std::string> kws = {
-        "int", "float", "double", "string", "bool", "cout", "input", "while", "if", "return"
+        "void","int", "float", "double", "string", "bool", "cout", "input", "while", "if", "return"
     };
     return kws.contains(s);
 }
@@ -142,23 +142,27 @@ void execute(const std::vector<Token>& code, Environment& env) {
             }
         }
 
-        else if (t.text == "cout") {
+    else if (t.text == "cout") {
+        i++;
+        if (i < code.size() && code[i].text == "(") {
             i++;
-            if (i < code.size() && code[i].text == "(") {
-                i++;
-                while (i < code.size() && code[i].text != ")") {
-                    std::vector<Token> expr;
-                    while (i < code.size() && code[i].text != "," && code[i].text != ")") {
-                        expr.push_back(code[i]);
-                        i++;
-                    }
-                    if (!expr.empty()) {
-                        std::cout << env.stringify(env.evaluateExpression(expr, env));
-                    }
-                    if (code[i].text == ",") i++; 
+            while (i < code.size() && code[i].text != ")") {
+                std::vector<Token> expr;
+                int parenCount = 0;
+
+                while (i < code.size() && (code[i].text != "," || parenCount > 0) && code[i].text != ")") {
+                    if (code[i].text == "(") parenCount++;
+                    if (code[i].text == ")") parenCount--;
+                    expr.push_back(code[i]);
+                    i++;
                 }
+                if (!expr.empty()) {
+                    std::cout << env.stringify(env.evaluateExpression(expr, env));
+                }
+                if (i < code.size() && code[i].text == ",") i++; 
             }
         }
+    }
 
         else if (t.text == "if") {
             i++; 
@@ -222,7 +226,7 @@ void execute(const std::vector<Token>& code, Environment& env) {
             }
         }
         
-        if (t.text == "return") {
+        else if (t.text == "return") {
             i++;
             std::vector<Token> expr;
             while (i < code.size() && code[i].text != ";") {
@@ -230,6 +234,68 @@ void execute(const std::vector<Token>& code, Environment& env) {
                 i++;
             }
             throw ReturnSignal{ env.evaluateExpression(expr, env) };
+        }
+        else if (t.type == TokenType::KEYWORD && (t.text == "int" || t.text == "void" /* etc */)) {
+            if (i + 2 < code.size() && code[i+2].text == "(") {
+                Function newFunc;
+                newFunc.isVoid = (t.text == "void");
+                newFunc.name = code[i+1].text;
+                i += 3;
+            
+                while (code[i].text != ")") {
+                    DataType pType = (code[i].text == "int") ? DataType::INT : DataType::STRING; // Simplified
+                    newFunc.params.push_back({code[i+1].text, pType});
+                    i += 2;
+                    if (code[i].text == ",") i++;
+                }
+                i++;
+            
+                if (code[i].text == "{") {
+                    i++;
+                    int start = i;
+                    int braceCount = 1;
+                    while (braceCount > 0) {
+                        if (code[i].text == "{") braceCount++;
+                        else if (code[i].text == "}") braceCount--;
+                        i++;
+                    }
+                    newFunc.body = std::vector<Token>(code.begin() + start, code.begin() + i - 1);
+
+                    env.functionTable[newFunc.name] = newFunc;
+                }
+            }
+        }
+        else if (t.type == TokenType::IDENTIFIER && i + 1 < code.size() && code[i+1].text == "(") {
+            std::string funcName = t.text;
+            i += 2;
+
+            std::vector<Value> args;
+            while (i < code.size() && code[i].text != ")") {
+                std::vector<Token> argExpr;
+                while (i < code.size() && code[i].text != "," && code[i].text != ")") {
+                    argExpr.push_back(code[i]);
+                    i++;
+                }
+                args.push_back(env.evaluateExpression(argExpr, env));
+                if (code[i].text == ",") i++;
+            }
+        
+            if (env.functionTable.find(funcName) != env.functionTable.end()) {
+                Function& func = env.functionTable[funcName];
+
+                Environment localEnv(&env); 
+            
+                for (size_t j = 0; j < func.params.size(); j++) {
+                    localEnv.define(func.params[j].name, func.params[j].type, args[j]);
+                }
+            
+                try {
+                    execute(func.body, localEnv);
+                } catch (ReturnSignal& sig) {
+                }
+            } else {
+                throwError("Undefined function: " + funcName, -10);
+            }
         }
     }
 }
@@ -263,7 +329,15 @@ void run(std::vector<Token> code) {
     // Backgrounds
     env.define("col_bg_red", DataType::STRING, std::string(ISI_Color::bg_red));
     env.define("col_bg_blue", DataType::STRING, std::string(ISI_Color::bg_blue));
-    execute(code, env);
+    
+    
+    try {
+        execute(code, env);
+    } catch (const ReturnSignal& sig) {
+        //catches a return
+    } catch (const std::exception& e) {
+        std::cerr << "Runtime Error: " << e.what() << std::endl;
+    }
 }
 
 int main(int argc, char* argv[]){
@@ -295,7 +369,7 @@ int main(int argc, char* argv[]){
     }
     delete ignUnkFlags;
 
-    auto start = std::chrono::steady_clock::now();
+    std::chrono::_V2::steady_clock::time_point start = std::chrono::steady_clock::now();
 
     std::vector<std::string> input;
     std::string fileName = argv[1];

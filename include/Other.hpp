@@ -44,6 +44,24 @@ namespace ISI_Color {
     inline constexpr const char* bg_cyan    = "\033[46m";
     inline constexpr const char* bg_white   = "\033[47m";
 }
+
+enum class FuncType {
+    INT, FLOAT, STRING, BOOL, VOID
+};
+
+struct Parameter {
+    std::string name;
+    DataType type;
+};
+
+struct Function {
+    std::string name;
+    DataType returnType;
+    std::vector<Parameter> params;
+    std::vector<Token> body;
+    bool isVoid = false;
+};
+
 struct ReturnSignal {
     Value value;
 };

@@ -11,6 +11,9 @@
 #include "Value.hpp"
 #include "Other.hpp"
 
+class Environment;
+void execute(const std::vector<Token>& code, Environment& env);
+
 class Environment {
 private:
     std::unordered_map<std::string, Symbol> symbols;
@@ -26,7 +29,29 @@ private:
     }
 
 public:
+    std::unordered_map<std::string, Function> functionTable;
     Environment(Environment* parent = nullptr) : enclosing(parent) {}
+
+    Value callFunction(std::string name, std::vector<Value> args, Environment& parentEnv) {
+        if (functionTable.find(name) == functionTable.end()) {
+            throwError("Function " + name + " not found", -11);
+        }
+
+        Function& func = functionTable[name];
+        Environment localEnv(&parentEnv);
+
+        for (size_t j = 0; j < func.params.size(); j++) {
+            localEnv.define(func.params[j].name, func.params[j].type, args[j]);
+        }
+
+        try {
+            execute(func.body, localEnv);
+        } catch (ReturnSignal& sig) {
+            return sig.value;
+        }
+
+        return 0;
+    }
 
     void define(const std::string& name, DataType type, Value initialValue) {
         if (type == DataType::FLOAT && std::holds_alternative<int>(initialValue)) {
@@ -74,32 +99,61 @@ public:
     Value evaluateExpression(std::vector<Token> tokens, Environment& env) {
         if (tokens.empty()) return 0;
 
-        auto getAtomValue = [&](size_t& index) -> Value {
-            if (index >= tokens.size()) return 0;
-            Token t = tokens[index];
+    auto getAtomValue = [&](size_t& index) -> Value {
+        if (index >= tokens.size()) return 0;
+        Token t = tokens[index];
 
-            if (t.text == "input" && index + 1 < tokens.size() && tokens[index + 1].text == "(") {
-                index += 2;
-                while (index < tokens.size() && tokens[index].text != ")") {
+        if (t.type == TokenType::IDENTIFIER && index + 1 < tokens.size() && tokens[index + 1].text == "(") {
+            std::string funcName = t.text;
+            index += 2;
+
+            std::vector<Value> args;
+            while (index < tokens.size() && tokens[index].text != ")") {
+                std::vector<Token> argExpr;
+                int parenCount = 0;
+                while (index < tokens.size() && (tokens[index].text != "," || parenCount > 0) && tokens[index].text != ")") {
+                    if (tokens[index].text == "(") parenCount++;
+                    if (tokens[index].text == ")") parenCount--;
+                    argExpr.push_back(tokens[index]);
                     index++;
                 }
-                index++; 
+                args.push_back(evaluateExpression(argExpr, env));
+                if (index < tokens.size() && tokens[index].text == ",") index++;
+            }
+            index++;
 
-                std::string cinInput;
-                if (std::getline(std::cin >> std::ws, cinInput)) {
-                    return env.parseLiteral(cinInput);
+            return callFunction(funcName, args, env);
+        }
+
+        if (t.text == "input" && index + 1 < tokens.size() && tokens[index + 1].text == "(") {
+                index += 2;
+
+                std::vector<Token> promptExpr;
+                while (index < tokens.size() && tokens[index].text != ")") {
+                    promptExpr.push_back(tokens[index]);
+                    index++;
+                }
+
+                if (!promptExpr.empty()) {
+                    std::cout << env.stringify(env.evaluateExpression(promptExpr, env));
+                }
+                index++;
+            
+                std::string userInput;
+                if (std::getline(std::cin >> std::ws, userInput)) {
+                    return env.parseLiteral(userInput);
                 }
                 return std::string("");
-            }
+        }
 
-            if (t.type == TokenType::IDENTIFIER && env.exists(t.text)) {
-                index++;
-                return env.get(t.text);
-            }
-
+        if (t.type == TokenType::IDENTIFIER && env.exists(t.text)) {
             index++;
-            return env.parseLiteral(t.text);
-        };
+            return env.get(t.text);
+        }
+
+        index++;
+        return env.parseLiteral(t.text);
+    };
 
         size_t i = 0;
         Value result = getAtomValue(i);

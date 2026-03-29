@@ -1,8 +1,8 @@
 int x;
-while(x != 5)
-{
-    x = x + 1;
 
-    cout(x);
-
+int add(int a, int b){
+    return a + b;
 }
+
+double y = add(5,3);
+cout(y ,endl);
