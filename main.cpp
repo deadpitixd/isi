@@ -495,6 +495,7 @@ int main(int argc, char* argv[]){
     bool debug = false;
     bool *ignUnkFlags = new bool;
     *ignUnkFlags = false;
+    if (argc == 1){ std::cerr << "No file name given!\n"; return -1; }
     if (argc > 0){
         for (int i = 2; i < argc; i++){
             if (strcmp(argv[i], "--ignore-unk-flags") == 0){
