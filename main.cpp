@@ -14,6 +14,8 @@ namespace fs = std::filesystem;
 #include "include/Value.hpp"
 #include "include/Enviroment.hpp"
 #include "include/Other.hpp"
+#include "include/vm.hpp"
+#include "include/Compiler.hpp"
 std::vector<bool> boolSettings = {false, true, false};
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -553,7 +555,13 @@ int main(int argc, char* argv[]){
         delete i;
     }
 
-    run(lexed);
+    ISI_VM vm;
+    Compiler compiler;
+    compiler.compile(lexed);
+    vm.load(compiler.bytecode, compiler.constants);
+    vm.run();
+
+    //run(lexed);
 
     if(boolSettings[0]){
         std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - start;

@@ -221,7 +221,7 @@ public:
         return result;
     }
 
-    Value parseLiteral(const std::string& token) {
+    static Value parseLiteral(const std::string& token) {
         if (token == "true") return true;
         if (token == "false") return false;
 
