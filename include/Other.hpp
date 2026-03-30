@@ -99,11 +99,14 @@ inline void setErrParam(std::vector<Token>* code, int* i) {
     cI = i;
 }
 
-inline void throwError(std::string msg, int errCode, bool runtimeErr = true) {
+inline void throwError(std::string msg, int errCode, bool runtimeErr = true, std::string errType = "") {
     if (cCode && cI) {
         std::cerr << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at token line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (token: '" << ISI_Color::b_blue << (*cCode)[*cI].text << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
     } else {
-        std::cerr << ISI_Color::b_red << "Error: " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
+        if (runtimeErr)
+            std::cerr << ISI_Color::b_red << "Error: " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
+        else
+            std::cerr << ISI_Color::b_red << errType << ": " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
     }
     std::exit(errCode);
 }

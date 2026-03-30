@@ -1,3 +1,4 @@
-int x = "test";
-zumi = 6;
-cout(x);
+int x;
+x = 15;
+string message = "The value is:";
+cout(message, x);

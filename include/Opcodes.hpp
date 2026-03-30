@@ -1,9 +1,10 @@
 #ifndef OPCODES_HPP
 #define OPCODES_HPP
-
+#define uint uint32_t
 #include <cstdint>
 
-enum class OpCode : uint8_t {
+enum class OpCode : uint
+{
     OP_CONSTANT,      // [Op, Index] - Push value from constants to stack
     OP_POP,           // [Op] - Remove top value from stack
 

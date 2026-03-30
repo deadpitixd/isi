@@ -244,19 +244,7 @@ public:
         return token; 
     }
 
-    std::string valueToString(const Value& val) {
-        return std::visit([](auto&& arg) -> std::string {
-            using T = std::decay_t<decltype(arg)>;
-            if constexpr (std::is_same_v<T, bool>) {
-                return arg ? "true" : "false";
-            } else if constexpr (std::is_same_v<T, std::string>) {
-                return arg;
-            } else if constexpr (std::is_same_v<T, std::monostate>) { return "null"; } else {
-                // handles int and double
-                return std::to_string(arg);
-            }
-        }, val);
-    }
+
 
     void assign(const std::string& name, Value newValue) {
         if (symbols.contains(name)) {
