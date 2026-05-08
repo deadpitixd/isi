@@ -1,4 +1,7 @@
-# Interscript Interpreted
+# Interscript Interpreted [DEPRECATED]
+
+> This branch hosues the deprecated ISI
+> Use the new JIT ISI
 
 Website:
 https://deadpitixd.github.io/isi/
