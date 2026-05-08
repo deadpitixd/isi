@@ -1,0 +1,95 @@
+#pragma once
+#include <string>
+#include <vector>
+#include <memory>
+#include "Value.hpp"
+
+struct Node {
+    virtual ~Node() = default;
+};
+
+struct Expr : public Node {};
+
+struct Stmt : public Node {};
+
+
+struct LiteralExpr : public Expr {
+    Value value;
+    LiteralExpr(Value v) : value(std::move(v)) {}
+};
+
+struct VariableExpr : public Expr {
+    std::string name;
+    VariableExpr(std::string n) : name(std::move(n)) {}
+};
+
+struct BinaryExpr : public Expr {
+    std::unique_ptr<Expr> left;
+    Token op;
+    std::unique_ptr<Expr> right;
+    BinaryExpr(std::unique_ptr<Expr> l, Token o, std::unique_ptr<Expr> r)
+        : left(std::move(l)), op(std::move(o)), right(std::move(r)) {}
+};
+
+struct CallExpr : public Expr {
+    std::string callee;
+    std::vector<std::unique_ptr<Expr>> arguments;
+    CallExpr(std::string c, std::vector<std::unique_ptr<Expr>> args)
+        : callee(std::move(c)), arguments(std::move(args)) {}
+};
+
+struct AssignExpr : public Expr {
+    std::string name;
+    std::unique_ptr<Expr> value;
+    AssignExpr(std::string n, std::unique_ptr<Expr> v)
+        : name(std::move(n)), value(std::move(v)) {}
+};
+
+struct ExpressionStmt : public Stmt {
+    std::unique_ptr<Expr> expression;
+    ExpressionStmt(std::unique_ptr<Expr> e) : expression(std::move(e)) {}
+};
+
+struct VarDeclStmt : public Stmt {
+    DataType type;
+    std::string name;
+    std::unique_ptr<Expr> initializer;
+    VarDeclStmt(DataType t, std::string n, std::unique_ptr<Expr> init)
+        : type(t), name(std::move(n)), initializer(std::move(init)) {}
+};
+
+struct PrintStmt : public Stmt {
+    std::vector<std::unique_ptr<Expr>> arguments;
+    PrintStmt(std::vector<std::unique_ptr<Expr>> args) : arguments(std::move(args)) {}
+};
+
+struct BlockStmt : public Stmt {
+    std::vector<std::unique_ptr<Stmt>> statements;
+    BlockStmt(std::vector<std::unique_ptr<Stmt>> stmts) : statements(std::move(stmts)) {}
+};
+
+
+struct ImportStmt : public Stmt {
+    std::string path;
+    ImportStmt(std::string p) : path(std::move(p)) {}
+};
+
+struct LibStmt : public Stmt {
+    std::string handle;
+    std::string libPath;
+    LibStmt(std::string h, std::string p) : handle(std::move(h)), libPath(std::move(p)) {}
+};
+
+struct Param {
+    DataType type;
+    std::string name;
+};
+
+struct ExternStmt : public Stmt {
+    std::string libHandle;
+    std::string funcName;
+    DataType returnType;
+    std::vector<Param> params;
+    ExternStmt(std::string h, std::string f, DataType r, std::vector<Param> p)
+        : libHandle(std::move(h)), funcName(std::move(f)), returnType(r), params(std::move(p)) {}
+};

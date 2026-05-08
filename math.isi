@@ -1,0 +1,3 @@
+lib mathl = loadLib("math");
+
+extern(mathl) float sqrt(float x);
