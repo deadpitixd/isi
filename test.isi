@@ -1,3 +1,2 @@
-cout("Hello ", "World!\n");
-cout("Finally works!\n");
-test(3.141);
+int x = 7;
+cout(x, "\n");

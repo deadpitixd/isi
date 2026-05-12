@@ -137,11 +137,6 @@ struct ReturnSignal {
     Value value;
 };
 
-struct Symbol {
-    DataType type;
-    Value value;
-};
-
 inline std::vector<Token>* cCode = nullptr;
 inline int* cI = nullptr;
 

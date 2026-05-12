@@ -1,1 +1,1 @@
-g++ -std=c++20 -I./include/ main.cpp -o $1 && ./$1 $2 $3 $4 $5 $6 $7 $8
+g++-16 -std=c++26 -freflection -I./include/ main.cpp -o $1 && ./$1 $2 $3 $4 $5 $6 $7 $8

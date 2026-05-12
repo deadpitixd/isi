@@ -3,6 +3,12 @@
 #include <vector>
 #include <Opcode.hpp>
 #include <Other.hpp>
+#include <map>
+
+struct Symbol {
+    int index;
+    DataType type;
+};
 
 struct Instruction{
     OpCode op;
@@ -11,6 +17,8 @@ struct Instruction{
 
 class Compiler{
     private:
+    std::map<std::string, Symbol> symbolTable;
+    int nextAvailableIndex = 0;
     std::vector<Instruction> Code;
     void emitByte(uint32_t byte) {
         Code.push_back({static_cast<OpCode>(byte), {}});
@@ -42,6 +50,16 @@ class Compiler{
         return errTokens[current - 1];
     }
     public:
+        int getVariableIndex(const std::string& name, DataType type){
+            auto it = symbolTable.find(name);
+            if (it != symbolTable.end()){
+                return it->second.index;
+            }
+            int index = nextAvailableIndex++;
+            symbolTable[name] = { index, type };
+    
+            return index;
+        }
         std::vector<Token> lex(const std::string& src) {
             std::vector<Token> tokens;
             int i = 0;
@@ -142,21 +160,58 @@ class Compiler{
             return {};
         }
         std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens){
-            std::cout << "AST\n";
+            if (debug || useDevEnv) std::cout << "AST\n";
             std::vector<std::unique_ptr<Stmt>> statements;
             errTokens = tokens;
             while (current < tokens.size() && tokens[current].type != TOKEN_EOF) {
+                // Data types
+                if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T) {
+                    DataType type = (tokens[current].type == TOKEN_INT) ? DataType::INT : DataType::STRING;
+                    current++;
+
+                    if (tokens[current].type == TOKEN_IDENTIFIER) {
+                        std::string name = tokens[current].lexeme;
+                        current++;
+
+                        std::unique_ptr<Expr> initializer = nullptr;
+                        if (tokens[current].type == TOKEN_EQUALS) {
+                            current++;
+                            if (tokens[current].type == TOKEN_NUMBER || tokens[current].type == TOKEN_STRING) {
+                                initializer = std::make_unique<LiteralExpr>(tokens[current].lexeme);
+                                current++;
+                            }
+                        }
+                        
+                if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                statements.push_back(std::make_unique<VarDeclStmt>(type, name, std::move(initializer)));
+                continue;
+                    }
+                }
+                if (tokens[current].type == TOKEN_IDENTIFIER && peek(1).type == TOKEN_EQUALS) {
+                    std::string name = tokens[current].lexeme;
+                    current += 2;
+
+                    std::unique_ptr<Expr> value;
+                    if (tokens[current].type == TOKEN_NUMBER || tokens[current].type == TOKEN_STRING) {
+                        value = std::make_unique<LiteralExpr>(tokens[current].lexeme);
+                        current++;
+                    }
+                    
+                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                    statements.push_back(std::make_unique<ExpressionStmt>(std::make_unique<AssignExpr>(name, std::move(value))));
+                    continue;
+                }
                 // Functions
                 if (tokens[current].type == TOKEN_IDENTIFIER && expect(TOKEN_LPAREN)) {
                     std::string funcName = tokens[current].lexeme;
-                    std::cout << "Calling function '" << funcName << "'\n";
+                    if (debug && !useDevEnv) std::cout << "Calling function '" << funcName << "'\n";
                     std::vector<std::unique_ptr<Expr>> callArgs;
                     
                     current+=2;
 
                     while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
                         if (tokens[current].type == TOKEN_NUMBER) {
-                            std::cout << "Pushed back number '" << tokens[current].lexeme << "'\n";
+                            if (debug && !useDevEnv) std::cout << "Pushed back number '" << tokens[current].lexeme << "'\n";
                             callArgs.push_back(std::make_unique<LiteralExpr>(tokens[current].lexeme));
                         }
                         
@@ -172,17 +227,17 @@ class Compiler{
                 // THIS CODE BLOCK WILL BE REMOVED WHEN C++ EXTENSION WILL BE ADDED
                 if (tokens[current].type == TOKEN_PRINT){
                     if (expect(TOKEN_LPAREN)) {
-                        std::cout << "Calling function 'cout'\n";
+                        if (debug && !useDevEnv) std::cout << "Calling function 'cout'\n";
                         std::vector<std::unique_ptr<Expr>> astArgs;
                         current += 2; 
 
                         while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
                             if (tokens[current].type == TOKEN_STRING) {
-                                std::cout << "Pushed back string '" << tokens[current].lexeme << "'\n";
+                                if (debug && !useDevEnv) std::cout << "Pushed back string '" << tokens[current].lexeme << "'\n";
                                 astArgs.push_back(std::make_unique<LiteralExpr>(tokens[current].lexeme));
                             } 
                             else if (tokens[current].type == TOKEN_IDENTIFIER) {
-                                std::cout << "Pushed back identifier '" << tokens[current].lexeme << "'\n";
+                                if (debug && !useDevEnv) std::cout << "Pushed back identifier '" << tokens[current].lexeme << "'\n";
                                 astArgs.push_back(std::make_unique<VariableExpr>(tokens[current].lexeme));
                             }
                             
@@ -197,24 +252,45 @@ class Compiler{
             }
             return statements;
         }  
-        void compile(std::vector<std::unique_ptr<Stmt>> nodes)
+        void compile(const std::vector<std::unique_ptr<Stmt>>& nodes)
         {
             for (const std::unique_ptr<Stmt> &node : nodes){
+                if (auto decl = dynamic_cast<VarDeclStmt*>(node.get())) {
+                    int index = getVariableIndex(decl->name, decl->type);
+                    if (decl->initializer) {
+                        if (auto lit = dynamic_cast<LiteralExpr*>(decl->initializer.get())) {
+                            emitInstruction(OP_PUSH, lit->value);
+                        }
+                        emitInstruction(OP_STORE, index);
+                    }
+                }
+                
+                else if (auto exprStmt = dynamic_cast<ExpressionStmt*>(node.get())) {
+                    if (auto assign = dynamic_cast<AssignExpr*>(exprStmt->expression.get())) {
+                        int index = getVariableIndex(assign->name, DataType::INT);
+                        if (auto lit = dynamic_cast<LiteralExpr*>(assign->value.get())) {
+                            emitInstruction(OP_PUSH, lit->value);
+                        }
+                        emitInstruction(OP_STORE, index);
+                    }
+                }
                 if (auto p = dynamic_cast<PrintStmt*>(node.get())) {
                     for (const auto& arg : p->arguments) {
                         if (auto lit = dynamic_cast<LiteralExpr*>(arg.get())) {
                             emitInstruction(OP_PUSH, lit->value); 
                         } 
                         else if (auto var = dynamic_cast<VariableExpr*>(arg.get())) {
-                            //emitInstruction(OP_LOAD, getVariableIndex(var->name));
+                            emitInstruction(OP_LOAD, getVariableIndex(var->name, DataType::INT));
                         }
                         emitByte(OP_PRINT);
                     }
                 }
             }
             emitByte(OP_HALT);
-            for (Instruction i : Code){
-                std::cout << i.op << ", " << valueToString(i.value) << "\n";
+            if (debug){
+                for (Instruction i : Code){
+                    std::cout << i.op << ", " << valueToString(i.value) << "\n";
+                }
             }
         }
         constexpr std::vector<Instruction> getCode(){
@@ -224,6 +300,9 @@ class Compiler{
 
 class VirtualMachine {
 private:
+    std::vector<Value> globals;
+    std::map<std::string, Symbol> symbolTable;
+    int nextSlot = 0;
     void handleEscapes(std::string& str) {
         size_t pos = 0;
         while ((pos = str.find("\\n", pos)) != std::string::npos) {
@@ -244,7 +323,7 @@ private:
         stack.push_back(val);
     }
 
-public:
+public: 
     void run(const std::vector<Instruction>& code) {
         pc = 0;
         while (pc < code.size()) {
@@ -262,7 +341,23 @@ public:
                     std::cout << text;
                     break;
                 }
+                case OP_STORE: {
+                    if (std::holds_alternative<int>(instr.value)) {
+                        int index = std::get<int>(instr.value);
+                        Value val = pop();
+                        if (index >= globals.size()) globals.resize(index + 1);
+                        globals[index] = val;
+                    }
+                    break;
+                }
 
+                case OP_LOAD: {
+                    if (std::holds_alternative<int>(instr.value)) {
+                        int index = std::get<int>(instr.value);
+                        push(globals[index]);
+                    }
+                    break;
+                }
                 case OP_HALT:
                     return;
 
