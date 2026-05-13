@@ -5,6 +5,16 @@
 #include <Other.hpp>
 #include <map>
 
+template <typename E>
+constexpr std::string_view enum_to_string(E value) {
+    template for (constexpr auto member : std::define_static_array(std::meta::enumerators_of(^^E))) {
+        if (value == [:member:]) {
+            return std::meta::display_string_of(member);
+        }
+    }
+    return "<unknown>";
+}
+
 struct Symbol {
     int index;
     DataType type;
@@ -286,10 +296,13 @@ class Compiler{
                     }
                 }
             }
-            emitByte(OP_HALT);
+            emitInstruction(OP_HALT,0);
             if (debug){
                 for (Instruction i : Code){
-                    std::cout << i.op << ", " << valueToString(i.value) << "\n";
+                    if (valueToString(i.value) != "")
+                        std::println("Op: {}, Val: {}", enum_to_string(i.op), valueToString(i.value));
+                    else
+                        std::println("Op: {}", enum_to_string(i.op));
                 }
             }
         }
@@ -324,8 +337,9 @@ private:
     }
 
 public: 
-    void run(const std::vector<Instruction>& code) {
+    int run(const std::vector<Instruction>& code) {
         pc = 0;
+        bool endsWithNewline = false;
         while (pc < code.size()) {
             const Instruction& instr = code[pc];
 
@@ -337,8 +351,12 @@ public:
                 case OP_PRINT: {
                     Value val = pop();
                     std::string text = valueToString(val);
+                    if (text.empty()) break;
                     handleEscapes(text);
-                    std::cout << text;
+                    std::print("{}",text);
+                    if (text[text.size()-1]=='\n'){
+                        endsWithNewline=true;
+                    }
                     break;
                 }
                 case OP_STORE: {
@@ -358,14 +376,16 @@ public:
                     }
                     break;
                 }
-                case OP_HALT:
-                    return;
-
+                case OP_HALT:{
+                    if (!endsWithNewline) std::print("\n");
+                    return valueToInt(instr.value);
+                }
                 default:
                     std::cerr << "Unknown OpCode: " << instr.op << std::endl;
-                    return;
+                    return -INT32_MAX;
             }
             pc++;
         }
+        return INT32_MAX;
     }
 };

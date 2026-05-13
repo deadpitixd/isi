@@ -4,18 +4,22 @@
 
 bool useDevEnv = false;
 bool debug = false;
+bool compiledBin = false;
+#include <unordered_set>
+std::unordered_set<std::string> flags = {};
+#include <print>
 #include <fstream>
 #include <iostream>
 #include <meta>
 #include <Other.hpp>
 #include <filesystem>
 #include <Compiler.hpp>
-#include <unordered_set>
-#include <print>
+#define __VAPOR_H_EXC_INI
+// some stuff for some easier thingies
+#include <vapor/vapor.h>
 
 namespace fs = std::filesystem;
 std::string fileName;
-std::unordered_set<std::string> flags = {};
 
 int main(int argc, char* argv[]){   
     // Self explanatory
@@ -27,8 +31,9 @@ int main(int argc, char* argv[]){
         fileName = argv[2];
     }
     // Adds extension
-    if (!fileName.ends_with(".isi")) {fileName+=".isi";};
-    std::cout << fileName << "\n";
+    if (fileName.ends_with(".isic")) compiledBin = true;
+    if (!compiledBin && !fileName.ends_with(".isi")) {fileName+=".isi";};
+    if (debug) std::cout << fileName << "\n";
     // Checks if the file exists
     if (!fs::exists(fileName)) { throwError("Couldn't find " + fileName, -1); }
     // This gets the arguments
@@ -41,13 +46,79 @@ int main(int argc, char* argv[]){
         if (arg == "--test"){
             std::cout << "Works!\n";
         }
-        if (arg == "--debug"){
+        else if (arg == "--debug"){
             debug = true;
         }
-        if (arg == "--devenv"){
+        else if (arg == "--devenv"){
             useDevEnv = true;
         }
+        else
+        {
+            flags.insert(arg);
+        }
     }
+    }
+
+    VirtualMachine vm;
+
+    if (compiledBin){
+        char *buf = static_cast<char*>(malloc(vp_getFileSize(fileName.c_str())+1));
+        vp_readfileS(buf,fileName.c_str(), vp_getFileSize(fileName.c_str()));
+        const std::string code = buf;
+        free(buf);
+        std::vector<std::string> opc;
+        opc.push_back("");
+        for (char c : code){
+            if (c == '|'){
+                opc.push_back("");
+                continue;
+            }
+            if (c == ';'){
+                opc.push_back("");
+            }
+            if (c == '\n'){
+                opc.push_back("");
+                continue;
+            }
+            else
+            {
+                opc.back() += c;
+                continue;
+            }
+        }
+        std::vector<Instruction> instr{};
+        uint op = 256;
+        Value val{};
+        for (std::string s : opc){
+            if (s == ";") {
+                instr.push_back({(OpCode)op,val});
+                val = {};
+                op = 256;
+                continue;
+            }
+            if (op == 256){
+                op = (OpCode)(uint)std::stoi(s);
+                continue;
+            }
+            else
+            {
+                val = s;
+                continue;
+            }
+        }
+
+        if (debug){
+        for (Instruction i : instr){
+            if (!valueToString(i.value).empty())
+                std::print("{},{}\n",std::to_string((uint)i.op), valueToString(i.value));
+            else
+                std::print("{}\n",std::to_string((uint)i.op));
+        }
+        }
+
+        vm.run(instr);
+        
+        return 0;
     }
     
     std::fstream file;
@@ -65,7 +136,6 @@ int main(int argc, char* argv[]){
     }
     }
     Compiler compiler;
-    VirtualMachine vm;
     std::vector<Token> lexedOut = compiler.lex(code);
     if (debug && !useDevEnv){
         for (Token i : lexedOut){
@@ -83,5 +153,19 @@ int main(int argc, char* argv[]){
     compiler.compile(nodes);
     std::vector<Instruction> compiled = compiler.getCode();
 
-    vm.run(compiled);
+    if (flags.contains("--compile")){
+        //filename.isic
+        const std::string nFileName = (fileName + "c").c_str();
+        // Makes an empty file
+        vp_RWwritefile(nFileName.c_str(), "");
+        for (Instruction i : compiled){
+            if (valueToString(i.value).empty())
+                vp_Awritefile(nFileName.c_str(), (std::to_string((uint)i.op).c_str() + (std::string)";\n").c_str());
+            else
+                vp_Awritefile(nFileName.c_str(), (std::to_string((uint)i.op).c_str() + (std::string)"|" + valueToString(i.value) + ";\n").c_str());
+        }
+    }
+
+    int errc = vm.run(compiled);
+    if (debug) std::print("Program executed with code '{}'.\n", errc);
 }
