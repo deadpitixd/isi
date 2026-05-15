@@ -1,1 +1,4 @@
-cout("Hello World!");
+float x = 5;
+float y = 5.5;
+x = x + y;
+print("Hello " + "World!");

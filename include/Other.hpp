@@ -245,5 +245,37 @@ long long valueToInt(const Value& val) {
     if (std::holds_alternative<int>(val)) return std::get<int>(val);
     if (std::holds_alternative<double>(val)) return static_cast<long long>(std::get<double>(val));
     if (std::holds_alternative<bool>(val)) return std::get<bool>(val) ? 1 : 0;
+    
+    if (std::holds_alternative<std::string>(val)) {
+        try {
+            return std::stoll(std::get<std::string>(val));
+        } catch (...) {
+            return 0; 
+        }
+    }
     return 0;
+}
+
+DataType valueToType(const Value& val){
+    if (std::holds_alternative<std::string>(val)) {
+        return DataType::STRING;
+    } else if (std::holds_alternative<int>(val)) {
+        return DataType::INT;
+    } else if (std::holds_alternative<double>(val)) {
+        return DataType::FLOAT;
+    } else if (std::holds_alternative<bool>(val)) {
+        return DataType::BOOL;
+    }
+    return DataType::INT;
+}
+
+DataType getLiteralType(const std::string& lexeme) {
+    if (lexeme.find('"') != std::string::npos) return DataType::STRING;
+    if (lexeme.find('.') != std::string::npos) return DataType::FLOAT;
+    if (lexeme == "true" || lexeme == "false") return DataType::BOOL;
+    return DataType::INT;
+}
+
+inline bool isNumeric(const Value& val) {
+    return std::holds_alternative<int>(val) || std::holds_alternative<double>(val);
 }

@@ -61,63 +61,49 @@ int main(int argc, char* argv[]){
 
     VirtualMachine vm;
 
-    if (compiledBin){
-        char *buf = static_cast<char*>(malloc(vp_getFileSize(fileName.c_str())+1));
-        vp_readfileS(buf,fileName.c_str(), vp_getFileSize(fileName.c_str()));
-        const std::string code = buf;
+    if (compiledBin) {
+        char *buf = static_cast<char*>(malloc(vp_getFileSize(fileName.c_str()) + 1));
+        size_t size = vp_readfileS(buf, fileName.c_str(), vp_getFileSize(fileName.c_str()));
+        buf[size] = '\0';
+        std::string code = buf;
         free(buf);
-        std::vector<std::string> opc;
-        opc.push_back("");
-        for (char c : code){
-            if (c == '|'){
-                opc.push_back("");
-                continue;
-            }
-            if (c == ';'){
-                opc.push_back("");
-            }
-            if (c == '\n'){
-                opc.push_back("");
-                continue;
-            }
-            else
-            {
-                opc.back() += c;
-                continue;
-            }
-        }
-        std::vector<Instruction> instr{};
-        uint op = 256;
-        Value val{};
-        for (std::string s : opc){
-            if (s == ";") {
-                instr.push_back({(OpCode)op,val});
-                val = {};
-                op = 256;
-                continue;
-            }
-            if (op == 256){
-                op = (OpCode)(uint)std::stoi(s);
-                continue;
-            }
-            else
-            {
-                val = s;
-                continue;
+
+        std::vector<Instruction> instr;
+        std::string currentLine;
+        std::stringstream ss(code);
+
+        while (std::getline(ss, currentLine, ';')) {
+            currentLine.erase(std::remove(currentLine.begin(), currentLine.end(), '\n'), currentLine.end());
+            if (currentLine.empty()) continue;
+
+            size_t pipePos = currentLine.find('|');
+            if (pipePos != std::string::npos) {
+                std::string opPart = currentLine.substr(0, pipePos);
+                std::string valPart = currentLine.substr(pipePos + 1);
+
+                OpCode op = static_cast<OpCode>(std::stoi(opPart));
+                Value val;
+
+                if (!valPart.empty() && (std::isdigit(valPart[0]) || valPart[0] == '-')) {
+                    if (valPart.find('.') != std::string::npos) val = std::stod(valPart);
+                    else val = std::stoi(valPart);
+                } else {
+                    val = valPart;
+                }
+                instr.push_back({op, val});
+            } else {
+                OpCode op = static_cast<OpCode>(std::stoi(currentLine));
+                instr.push_back({op, {}});
             }
         }
 
-        if (debug){
-        for (Instruction i : instr){
-            if (!valueToString(i.value).empty())
-                std::print("{},{}\n",std::to_string((uint)i.op), valueToString(i.value));
-            else
-                std::print("{}\n",std::to_string((uint)i.op));
-        }
+        if (debug) {
+            for (const auto& i : instr) {
+                std::println("Op: {}, Val: {}", enum_to_string(i.op), valueToString(i.value));
+            }
         }
 
         vm.run(instr);
-        
         return 0;
     }
     
