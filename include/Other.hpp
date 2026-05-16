@@ -98,6 +98,9 @@ enum isiTokenType : uint{
     TOKEN_SMALLER,
     TOKEN_EQUALTO,
     TOKEN_NOT,
+
+    // Program exit, basically return
+    TOKEN_EXIT,
     
     // special
     TOKEN_EOF

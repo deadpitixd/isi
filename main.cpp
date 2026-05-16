@@ -5,6 +5,7 @@
 bool useDevEnv = false;
 bool debug = false;
 bool compiledBin = false;
+int assembleMode=0;
 #include <unordered_set>
 std::unordered_set<std::string> flags = {};
 #include <print>
@@ -28,8 +29,14 @@ int main(int argc, char* argv[]){
     bool readFlag=true;
     if (fileName == "--percentflag") {
         readFlag = false;
-        fileName = argv[2];
     }
+    if (fileName == "--assemble"){
+        assembleMode=1;
+    }
+    if (fileName == "--disassemble"){
+        assembleMode=2;
+    }
+    fileName = argv[2];
     // Adds extension
     if (fileName.ends_with(".isic")) compiledBin = true;
     if (!compiledBin && !fileName.ends_with(".isi")) {fileName+=".isi";};
@@ -102,9 +109,9 @@ int main(int argc, char* argv[]){
                 std::println("Op: {}, Val: {}", enum_to_string(i.op), valueToString(i.value));
             }
         }
-
-        vm.run(instr);
-        return 0;
+        int errc = vm.run(instr);
+        if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
+        return errc;
     }
     
     std::fstream file;
@@ -153,5 +160,6 @@ int main(int argc, char* argv[]){
     }
 
     int errc = vm.run(compiled);
-    if (debug) std::print("Program executed with code '{}'.\n", errc);
+    if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
+    return errc;
 }

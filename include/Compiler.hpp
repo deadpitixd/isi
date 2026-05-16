@@ -277,6 +277,7 @@ class Compiler{
                 if (tokens[i].lexeme == "if"){ tokens[i].type = TOKEN_IF; }
                 if (tokens[i].lexeme == "else"){ tokens[i].type = TOKEN_ELSE; }
                 if (tokens[i].lexeme == "while"){ tokens[i].type = TOKEN_WHILE; }
+                if (tokens[i].lexeme == "exit"){ tokens[i].type = TOKEN_EXIT; }
                 if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
@@ -288,7 +289,7 @@ class Compiler{
         std::vector<std::unique_ptr<Stmt>> parseBlock(std::vector<Token>& tokens) {
             std::vector<std::unique_ptr<Stmt>> blockStatements;
             
-            while (current < tokens.size() && tokens[current].type != TOKEN_RBRACE && tokens[current].type != TOKEN_EOF) {
+            while (!isAtEnd() && tokens[current].type != TOKEN_RBRACE) {
                 if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T) {
                     DataType type;
                     if (tokens[current].type == TOKEN_INT) type = DataType::INT;
@@ -414,6 +415,19 @@ class Compiler{
                         blockStatements.push_back(std::make_unique<PrintStmt>(std::move(astArgs)));
                     }
                 }
+                if (tokens[current].type == TOKEN_EXIT){
+                    if (expect(TOKEN_LPAREN)) {
+                        std::unique_ptr<Expr> astArg;
+                        current += 2; 
+
+                        while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
+                            astArg = expression(); 
+                    
+                            if (tokens[current].type == TOKEN_COMMA) throwError("exit() only takes 1 argument.", -1);
+                        }
+                        blockStatements.push_back(std::make_unique<ExitStmt>(std::move(astArg)));
+                    }
+                }
                 if (tokens[current].type == TOKEN_SEMICOLON) {
                     current++;
                     continue;
@@ -428,141 +442,11 @@ class Compiler{
             std::vector<std::unique_ptr<Stmt>> statements;
             errTokens = tokens;
             while (current < tokens.size() && tokens[current].type != TOKEN_EOF) {
-                if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T) {
-                    DataType type;
-                    if (tokens[current].type == TOKEN_INT) type = DataType::INT;
-                    else if (tokens[current].type == TOKEN_FLOAT) type = DataType::FLOAT;
-                    else type = DataType::STRING;
-                    
-                    current++;
-
-                    if (tokens[current].type == TOKEN_IDENTIFIER) {
-                        std::string name = tokens[current].lexeme;
-                        current++;
-
-                        std::unique_ptr<Expr> initializer = nullptr;
-
-                        if (tokens[current].type == TOKEN_EQUALS) {
-                            current++;
-                            initializer = expression(); 
-                        }
-
-                        if (tokens[current].type == TOKEN_SEMICOLON) current++;
-                        
-                        statements.push_back(std::make_unique<VarDeclStmt>(type, name, std::move(initializer)));
-                        continue;
-                    }
-                }
-                if (tokens[current].type == TOKEN_IDENTIFIER && peek(1).type == TOKEN_EQUALS && peek(2).type != TOKEN_EQUALS) {
-                    std::string name = tokens[current].lexeme;
-                    current += 2;
-
-                    std::unique_ptr<Expr> value = expression();
-                    
-                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
-                    statements.push_back(std::make_unique<ExpressionStmt>(std::make_unique<AssignExpr>(name, std::move(value))));
-                    continue;
-                }
-                if (tokens[current].type == TOKEN_IDENTIFIER && expect(TOKEN_LPAREN)) {
-                    std::string funcName = tokens[current].lexeme;
-                    if (debug && !useDevEnv) std::cout << "Calling function '" << funcName << "'\n";
-                    std::vector<std::unique_ptr<Expr>> callArgs;
-                    
-                    current += 2;
-
-                    while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
-                        if (tokens[current].type == TOKEN_NUMBER) {
-                            if (debug && !useDevEnv) std::cout << "Pushed back number '" << tokens[current].lexeme << "'\n";
-                            callArgs.push_back(std::make_unique<LiteralExpr>(tokens[current].lexeme));
-                        }
-                        
-                        current++;
-                        if (tokens[current].type == TOKEN_COMMA) current++;
-                    }
-                    
-                    statements.push_back(std::make_unique<ExpressionStmt>(
-                        std::make_unique<CallExpr>(funcName, std::move(callArgs))
-                    ));
-                }
-                if (tokens[current].type == TOKEN_EQUALS) {
-                    current++;
-                }
-                if (tokens[current].type == TOKEN_WHILE){
-                    current++;
-                    
-                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after 'while'", -1);
-                    current++;
-                    
-                    auto condition = expression();
-                    
-                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after condition", -1);
-                    current++;
-                    
-                    if (tokens[current].type != TOKEN_LBRACE) throwError("Expected '{' to start while block", -1);
-                    current++;
-                    
-                    std::vector<std::unique_ptr<Stmt>> thenBranch = parseBlock(tokens);
-                    
-                    if (tokens[current].type != TOKEN_RBRACE) throwError("Expected '}' at end of while block", -1);
-                    current++;
-
-                    statements.push_back(std::make_unique<WhileStmt>(std::move(condition), std::move(thenBranch)));
-                    continue;
-                }
-                if (tokens[current].type == TOKEN_IF) {
-                    current++;
-                    
-                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after 'if'", -1);
-                    current++;
-                    
-                    auto condition = expression();
-                    
-                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after condition", -1);
-                    current++;
-                    
-                    if (tokens[current].type != TOKEN_LBRACE) throwError("Expected '{' to start if block", -1);
-                    current++;
-                    
-                    std::vector<std::unique_ptr<Stmt>> thenBranch = parseBlock(tokens);
-                    
-                    if (tokens[current].type != TOKEN_RBRACE) throwError("Expected '}' at end of if block", -1);
-                    current++;
-                    
-                    std::vector<std::unique_ptr<Stmt>> elseBranch;
-                    if (!isAtEnd() && tokens[current].type == TOKEN_ELSE) {
-                        current++;
-                        if (tokens[current].type != TOKEN_LBRACE) throwError("Expected '{' to start else block", -1);
-                        current++;
-                        
-                        elseBranch = parseBlock(tokens);
-                        
-                        if (tokens[current].type != TOKEN_RBRACE) throwError("Expected '}' at end of else block", -1);
-                        current++;
-                    }
-                    
-                    statements.push_back(std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch)));
-                    continue;
-                }
-                if (tokens[current].type == TOKEN_PRINT) {
-                    if (expect(TOKEN_LPAREN)) {
-                        std::vector<std::unique_ptr<Expr>> astArgs;
-                        current += 2; 
-
-                        while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
-                            astArgs.push_back(expression()); 
-                            
-                            if (tokens[current].type == TOKEN_COMMA) current++;
-                        }
-                        statements.push_back(std::make_unique<PrintStmt>(std::move(astArgs)));
-                    }
-                }
-                if (tokens[current].type == TOKEN_SEMICOLON) {
-                    current++;
-                    continue;
-                }
-                current++;
+                errTokens = tokens;
+                current = 0;
+                return parseBlock(tokens);
             }
-            return statements;
+            return parseBlock(tokens);
         }
         
         void compileSingle(const std::unique_ptr<Stmt>& node) {
@@ -624,6 +508,10 @@ class Compiler{
                     Code[jumpInstIndex].value = (int)(Code.size() - jumpInstIndex - 1);
                 }
             }
+            else if (auto exitStmt = dynamic_cast<ExitStmt*>(node.get())){
+                compileExpression(exitStmt->argument);
+                emitByte(OP_HALT);
+            }
         }
 
         void compile(const std::vector<std::unique_ptr<Stmt>>& nodes)
@@ -631,13 +519,18 @@ class Compiler{
             for (const std::unique_ptr<Stmt> &node : nodes){
                 compileSingle(node);
             }
-            emitInstruction(OP_HALT,0);
+            if (Code.empty() || Code.back().op != OP_HALT){
+                emitInstruction(OP_PUSH,0);
+                emitByte(OP_HALT);
+            }
             if (debug){
+                int address = 0;
                 for (Instruction i : Code){
                     if (valueToString(i.value) != "")
-                        std::println("Op: {}, Val: {}", enum_to_string(i.op), valueToString(i.value));
+                        std::println("{:04d}: {:<16} {}",address, enum_to_string(i.op), valueToString(i.value));
                     else
-                        std::println("Op: {}", enum_to_string(i.op));
+                        std::println("{:04d}: {:<16}", address , enum_to_string(i.op));
+                    address++;
                 }
             }
         }
@@ -745,6 +638,9 @@ public:
                     break;
                 }
                 case OP_PRINT: {
+                    if (stack.size() < 1){
+                        throwError("Stack Underflow PC: " + pc, -1);
+                    }
                     Value val = pop();
                     std::string text = valueToString(val);
                     if (text.empty()) break;
@@ -767,6 +663,9 @@ public:
                 case OP_LOAD: {
                     if (std::holds_alternative<int>(instr.value)) {
                         const int index = std::get<int>(instr.value);
+                        if (globals.size() < index){
+                            throwError("Stack Underflow", -1);
+                        }
                         push(globals[index]);
                     }
                     break;
@@ -796,9 +695,22 @@ public:
                     push(val1 != val2 ? 1 : 0);
                     break;
                 }
+                case OP_GREATER:{
+                    const Value val1 = pop();
+                    const Value val2 = pop();
+                    push(val1 > val2 ? 1 : 0);
+                    break;
+                }
+                case OP_LESS:{
+                    const Value val1 = pop();
+                    const Value val2 = pop();
+                    push(val1 < val2 ? 1 : 0);
+                    break;
+                }
                 case OP_HALT:{
+                    const Value out = pop();
                     if (!endsWithNewline) std::print("\n");
-                    return valueToInt(instr.value);
+                    return valueToInt(out);
                 }
                 default:
                     std::cerr << "Unknown OpCode: " << instr.op << std::endl;

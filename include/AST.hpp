@@ -63,6 +63,11 @@ struct PrintStmt : public Stmt {
     PrintStmt(std::vector<std::unique_ptr<Expr>> args) : arguments(std::move(args)) {}
 };
 
+struct ExitStmt : public Stmt {
+    std::unique_ptr<Expr> argument;
+    ExitStmt(std::unique_ptr<Expr> args) : argument(std::move(args)) {}
+};
+
 struct BlockStmt : public Stmt {
     std::vector<std::unique_ptr<Stmt>> statements;
     BlockStmt(std::vector<std::unique_ptr<Stmt>> stmts) : statements(std::move(stmts)) {}

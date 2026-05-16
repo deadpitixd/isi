@@ -1,5 +1,5 @@
 #include <cstdint>
-#define uint uint32_t
+#define uint uint8_t
 
 enum OpCode : uint {
     OP_PUSH,
