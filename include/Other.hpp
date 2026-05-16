@@ -73,6 +73,7 @@ enum isiTokenType : uint{
     TOKEN_STAR,
     TOKEN_SLASH,
     TOKEN_EQUALS,
+    TOKEN_NOT_EQUALS,
 
     // symbols
     TOKEN_LPAREN,

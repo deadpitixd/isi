@@ -115,9 +115,17 @@ class Compiler{
         std::unique_ptr<Expr> addition() {
             auto expr = equality();
 
-            while (current + 1 < errTokens.size() && errTokens[current].type == TOKEN_EQUALS && errTokens[current + 1].type == TOKEN_EQUALS) {
+            while (current + 1 < errTokens.size() && 
+                  ((errTokens[current].type == TOKEN_EQUALS && errTokens[current + 1].type == TOKEN_EQUALS) ||
+                   (errTokens[current].type == TOKEN_NOT_EQUALS))) {
+                
                 Token op = errTokens[current];
-                current += 2;
+                if (op.type == TOKEN_EQUALS) {
+                    current += 2;
+                } else {
+                    current += 1;
+                }
+                
                 auto right = equality();
                 expr = std::make_unique<BinaryExpr>(std::move(expr), op, std::move(right));
             }
@@ -164,6 +172,7 @@ class Compiler{
                     case TOKEN_STAR:  emitByte(OP_MUL); break;
                     case TOKEN_SLASH: emitByte(OP_DIV); break;
                     case TOKEN_EQUALS: emitByte(OP_EQUALS); break;
+                    case TOKEN_NOT_EQUALS: emitByte(OP_NOT_EQUALS); break;
                     default: break;
                 }
             }
@@ -249,6 +258,7 @@ class Compiler{
                 if (c == '*') { tokens.push_back({TOKEN_STAR, "*"}); i++; continue; }
                 if (c == '/') { tokens.push_back({TOKEN_SLASH, "/"}); i++; continue; }
                 if (c == '+') { tokens.push_back({TOKEN_PLUS, "+"}); i++; continue; }
+                if (c == '!') { tokens.push_back({TOKEN_NOT, "!"}); i++; continue; }
 
                 i++;
             }
@@ -267,6 +277,7 @@ class Compiler{
                 if (tokens[i].lexeme == "if"){ tokens[i].type = TOKEN_IF; }
                 if (tokens[i].lexeme == "else"){ tokens[i].type = TOKEN_ELSE; }
                 if (tokens[i].lexeme == "while"){ tokens[i].type = TOKEN_WHILE; }
+                if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
             return tokens;
