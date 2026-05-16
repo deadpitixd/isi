@@ -110,4 +110,6 @@ struct IfStmt : public Stmt {
 struct WhileStmt : public Stmt {
     std::unique_ptr<Expr> condition;
     std::vector<std::unique_ptr<Stmt>> body;
+    WhileStmt(std::unique_ptr<Expr> cond,
+            std::vector<std::unique_ptr<Stmt>> b) : condition(std::move(cond)), body(std::move(b)) {}
 };

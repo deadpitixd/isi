@@ -346,6 +346,27 @@ class Compiler{
                 if (tokens[current].type == TOKEN_EQUALS) {
                     current++;
                 }
+                if (tokens[current].type == TOKEN_WHILE){
+                    current ++;
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after 'while'", -1);
+                    current++;
+                    
+                    auto condition = expression();
+                    
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after condition", -1);
+                    current++;
+                    
+                    if (tokens[current].type != TOKEN_LBRACE) throwError("Expected '{' to start while block", -1);
+                    current++;
+                    
+                    std::vector<std::unique_ptr<Stmt>> thenBranch = parseBlock(tokens);
+                    
+                    if (tokens[current].type != TOKEN_RBRACE) throwError("Expected '}' at end of while block", -1);
+                    current++;
+
+                    blockStatements.push_back(std::make_unique<WhileStmt>(std::move(condition), std::move(thenBranch)));
+                    continue;
+                }
                 if (tokens[current].type == TOKEN_IF) {
                     current++;
                     
@@ -466,6 +487,28 @@ class Compiler{
                 if (tokens[current].type == TOKEN_EQUALS) {
                     current++;
                 }
+                if (tokens[current].type == TOKEN_WHILE){
+                    current++;
+                    
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after 'while'", -1);
+                    current++;
+                    
+                    auto condition = expression();
+                    
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after condition", -1);
+                    current++;
+                    
+                    if (tokens[current].type != TOKEN_LBRACE) throwError("Expected '{' to start while block", -1);
+                    current++;
+                    
+                    std::vector<std::unique_ptr<Stmt>> thenBranch = parseBlock(tokens);
+                    
+                    if (tokens[current].type != TOKEN_RBRACE) throwError("Expected '}' at end of while block", -1);
+                    current++;
+
+                    statements.push_back(std::make_unique<WhileStmt>(std::move(condition), std::move(thenBranch)));
+                    continue;
+                }
                 if (tokens[current].type == TOKEN_IF) {
                     current++;
                     
@@ -538,6 +581,24 @@ class Compiler{
                     compileExpression(arg); 
                     emitByte(OP_PRINT);
                 }
+            }
+            else if (auto whileStmt = dynamic_cast<WhileStmt*>(node.get())) {
+                int loopStartHead = Code.size();
+
+                compileExpression(whileStmt->condition);
+
+                int jumpFalseIndex = Code.size();
+                emitInstruction(OP_JMP_IF_FALSE, 0);
+
+                for (const auto& stmt : whileStmt->body) {
+                    compileSingle(stmt);
+                }
+
+                int jumpBackIndex = Code.size();
+                int offsetBack = loopStartHead - jumpBackIndex - 1;
+                emitInstruction(OP_JMP, offsetBack);
+
+                Code[jumpFalseIndex].value = (int)(Code.size() - jumpFalseIndex - 1);
             }
             else if (auto ifStmt = dynamic_cast<IfStmt*>(node.get())) {
                 compileExpression(ifStmt->condition);

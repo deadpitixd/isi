@@ -1,5 +1,5 @@
 int x = 0;
-int y = 5;
-if (x != y){
-    print(x, " is not equal to ", y);
+while (x != 5){
+    x = x + 1;
+    print(x,"\n");
 }
