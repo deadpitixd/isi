@@ -6,6 +6,19 @@
 #include <string>
 #include "Other.hpp"
 
+// Small helper
+std::string getPlatform(){
+#ifdef WIN32
+    return "windows";
+#elif __APPLE__
+    return "apple";
+#elif __linux__
+    return "linux";
+#else
+    return "unknown";
+#endif
+}
+
 std::string getPlatformLibraryName(const std::string& baseName) {
 #ifdef _WIN32
     return baseName + ".dll";

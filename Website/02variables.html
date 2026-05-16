@@ -1,89 +1,80 @@
+<html>
 <head>
     <title>ISI 02 - Variables</title>
     <link rel="stylesheet" href="style.css">
-    <body>
-        <div class="content-wrapper">
-        <div class="iframe-container">
-            <iframe src="templates/menubuttons.html"></iframe>
-        </div>
+    <script src="func.js"></script>
+    <script src="syntax.js"></script>
+    <script src="macros.js"></script>
+</head>
+<body>
+    <div class="content-wrapper">
+    <div class="iframe-container">
+    <iframe src="templates/menubuttons.html"></iframe>
+    </div>
         <h1>Variables</h1>
-        <p>Variables in ISI are easy to understand, they are similar to C++.<br>
-        Currently there are <span class="r">4</span> data types, and they are:<br></p>
-        <div class="container">
-            <span class="b">int</span> - Contains a whole number (1, -5, 64)<br>
-            <span class="b">float</span> - Contains a floating point number (0.0, 63.5, -14.325)<br>
-            <span class="b">string</span> - Contains a string of characters ("Hello World!")<br>
-            <span class="b">bool</span> - Stores true or false<br>
-        </div>
+        <p>Currently as of ISI [[isiVersion]], there are 5 data types,<br>they are:<br>
+        int, float, char, string and bool.<br><br>
+        <span class="r">Note:</span> <span class="b">Floats in ISI are the same as C++ doubles</span>.</p>
+        
+        <h4>
+            Syntax:
+        </h4>
+<pre><code class="syntax-highlight" data-lang="javascript">int x = 10;
+</code></pre>
+        <br>
+        This program creates a variable named 'x' of type 'int', which can only<br>
+        store whole numbers, for example: '5', '-2', '1', '0', '-9261'.
+        <br><br>
+        They <span class="r">CANNOT</span> store decimal numbers like '3.14', but that's why floats exist.
+        <br>
+<pre><code class="syntax-highlight" data-lang="javascript">float pi = 3.14;
+</code></pre>
+        <br>
+        If you assing a float value to an int, a variable 'demotion' will occur.<br>
+        Think of it as int saying to a float number:<br>
+        "I can't store a decimal number, so i'll just truncate it to a whole number and take it."
+        <br><br>
+        So basically:<br>
+        float: 3.14 -> int: 3<br>
+        float: 9.99 -> int: 9
+        <br><br>
+        This also can work by assigning an int value to a float,
+        which works by 'promoting':<br><br>
 
-        <h4>
-            Variable definition:
-        </h4>
-        <div class="container">
-            <div>
-                <code>
-                <span class="b">int</span>
-                <span class="y">x</span>;
-                </code>
-            </div class="box">  
-        </div>
+        int: 3 -> float: 3.000<br>
+        int: 9 -> float: 9.000
+        <br><br>
+        As of ISI [[isiVersion]], there are 4 math operators:
         <br>
-        <p>The interpreter creates a variable named '<span class="y">x</span>'.</p>
-        <p>It's default value is 0,</p>
-        <h4>
-            Here, a variable with a value is initialized:
-        </h4>
-        <div class="container">
-            <div>
-                <code>
-                <span class="b">int</span>
-                <span class="y">x</span>
-                <span class="p">=</span>
-                <span class="r">10</span>;
-                </code>
-            </div class="box">  
-        </div>
+        +, -, *, /
         <br>
-        <p>Variable '<span class="y">x</span>' is defined with the value <span class="r">10</span></p>
-        <p></p>The most important part of variables is math, to use math you use
-        the 4 basic operators:</p>
-        <div class="container">
-            <span class="p">
-            +<br>
-            -<br>
-            *<br>
-            /<br>
-            </span>
-        </div>
+        They are the basic 4.
         <br>
-        <p>Their usage looks like this:</p>
-        <div class="container">
-            <div>
-                <code>
-                <span class="y">x</span>
-                <span class="p">=</span>
-                <span class="r">10</span>
-                <span class="y">+</span>
-                <span class="r">3</span>;
-                </code>
-            </div class="box">  
-        </div>
-        <p>Or with variables: </p>
-        <div class="container">
-            <div>
-                <code>
-                <span class="y">x</span>
-                <span class="p">=</span>
-                <span class="r">10</span>
-                <span class="y">+</span>
-                <span class="y">y</span>;
-                </code>
-            </div class="box">  
-        </div>
+        You can do math with them like this:
+        <br>
+<pre><code class="syntax-highlight" data-lang="javascript">int x = 5;
+int y = 8;
+int z = x + y; # z = 13 #
+# Or a more simple way: #
+z = 5 + 8;
+</code></pre>
+        For division you should use floats as output, because in division<br>
+        you'll mostly get decimal values.
+        <br><br>
+        <h3>Strings</h3>
+        Strings are one of the most useful data types, they can store text.<br>
+        To make a string, you use this:
+<pre><code class="syntax-highlight" data-lang="javascript">string text = "This is a String";
+</code></pre>
+You can also concatenate strings:
+<pre><code class="syntax-highlight" data-lang="javascript">string text1 = "Hello ";
+string text2 = "World!";
+string text = text1 + text2; # Hello World! #
+</code></pre>
         <div class="button-group">
           <a href="01basicSyntax.html"><button class="nav-button">Previous Chapter</button></a>
           <a href="03inputOutput.html"><button class="nav-button">Next Chapter</button></a>
         </div>
         </div>
-    </body>
-</head>
+</body>
+</html>

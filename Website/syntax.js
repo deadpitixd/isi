@@ -1,5 +1,5 @@
 const highlightCode = () => {
-  const blocks = document.querySelectorAll('.syntax-highlight') + document.querySelectorAll('.container');
+  const blocks = [...document.querySelectorAll('.syntax-highlight'), ...document.querySelectorAll('.container')];
 
   blocks.forEach(block => {
     let text = block.textContent;
@@ -7,8 +7,8 @@ const highlightCode = () => {
     const rules = [
       { type: 'comment',  regex: /(\/\/.*|\/\*[\s\S]*?\*\/)/g },
       { type: 'string',   regex: /("(?:\\"|[^"])*"|'(?:\\'|[^'])*')/g },
-      { type: 'keyword',  regex: /\b(int|float|char|bool|while|if|else|lib)\b/g },
-      { type: 'func',     regex: /\b([a-z_][a-z0-9_]*)(?=\()/gi }
+      { type: 'keyword',  regex: /\b(int|float|char|string|bool|while|if|else|lib)\b(?![^<>]*>)/g },
+      { type: 'func',     regex: /\b([a-z_][a-z0-9_]*)(?=\()(?![^<>]*>)/gi }
     ];
 
     let highlighted = text;
@@ -25,16 +25,3 @@ const highlightCode = () => {
 
   setupFunctionLinks();
 };
-
-const setupFunctionLinks = () => {
-  const functionLinks = document.querySelectorAll('.func');
-  functionLinks.forEach(el => {
-    el.style.cursor = 'pointer';
-    el.addEventListener('click', () => {
-      let name = el.innerText.toLowerCase().trim();
-      window.location.href = `funcs/${name}.html`;
-    });
-  });
-};
-
-document.addEventListener('DOMContentLoaded', highlightCode);
