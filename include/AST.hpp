@@ -93,3 +93,21 @@ struct ExternStmt : public Stmt {
     ExternStmt(std::string h, std::string f, DataType r, std::vector<Param> p)
         : libHandle(std::move(h)), funcName(std::move(f)), returnType(r), params(std::move(p)) {}
 };
+
+struct IfStmt : public Stmt {
+    std::unique_ptr<Expr> condition;
+    std::vector<std::unique_ptr<Stmt>> thenBranch;
+    // else can be empty
+    std::vector<std::unique_ptr<Stmt>> elseBranch;
+    IfStmt(std::unique_ptr<Expr> cond, 
+            std::vector<std::unique_ptr<Stmt>> thenBr, 
+            std::vector<std::unique_ptr<Stmt>> elseBr)
+            : condition(std::move(cond)), 
+            thenBranch(std::move(thenBr)), 
+            elseBranch(std::move(elseBr)) {}
+};
+
+struct WhileStmt : public Stmt {
+    std::unique_ptr<Expr> condition;
+    std::vector<std::unique_ptr<Stmt>> body;
+};

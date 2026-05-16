@@ -65,6 +65,7 @@ enum isiTokenType : uint{
     TOKEN_PRINT,
     TOKEN_IF,
     TOKEN_ELSE,
+    TOKEN_WHILE,
 
     // operators
     TOKEN_PLUS,
@@ -72,7 +73,6 @@ enum isiTokenType : uint{
     TOKEN_STAR,
     TOKEN_SLASH,
     TOKEN_EQUALS,
-    TOKEN_PLUS_EQUALS,
 
     // symbols
     TOKEN_LPAREN,
@@ -91,6 +91,12 @@ enum isiTokenType : uint{
     TOKEN_BOOL,
     TOKEN_FLOAT,
     TOKEN_LIB,
+
+    // Comparison operators
+    TOKEN_BIGGER,
+    TOKEN_SMALLER,
+    TOKEN_EQUALTO,
+    TOKEN_NOT,
     
     // special
     TOKEN_EOF
@@ -241,7 +247,7 @@ std::string valueTypeToStr(const Value& val){
     return typeToString(getValType(val));
 }
 
-long long valueToInt(const Value& val) {
+long long valueToInt(const Value& val, int nullVal = 0) {
     if (std::holds_alternative<int>(val)) return std::get<int>(val);
     if (std::holds_alternative<double>(val)) return static_cast<long long>(std::get<double>(val));
     if (std::holds_alternative<bool>(val)) return std::get<bool>(val) ? 1 : 0;
@@ -250,7 +256,7 @@ long long valueToInt(const Value& val) {
         try {
             return std::stoll(std::get<std::string>(val));
         } catch (...) {
-            return 0; 
+            return nullVal; 
         }
     }
     return 0;

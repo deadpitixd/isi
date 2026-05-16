@@ -1,4 +1,5 @@
-float x = 5;
-float y = 5.5;
-x = x + y;
-print("Hello " + "World!");
+int x = 0;
+if (x == 0){
+    x = x + 1;
+    print(x, "\n");
+}

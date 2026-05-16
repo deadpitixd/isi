@@ -64,10 +64,13 @@ vp_result vp_RWwritefile(const char* fileName, const char* data);
 // Writes to a file, returns vp_OK or vp_FAIL depending if successful
 vp_result vp_Awritefile(const char* fileName, const char* data);
 
-// ### Reads from a file
-// #### (char* Destination string pointer, const char* File name, const size_t Buffer size)
-// Reads from a file into a const char*, sets the string to null if file not found.
-// Buffer size parameter is for memory safety when returning.
+/** @brief Reads from a file
+  * @param char* Destination string pointer
+  * @param const_char* File name
+  * @param const_size_t Buffer size
+  * Reads from a file into a const char*, sets the string to null if file not found.
+  * @return Returns the size of the file.
+  */
 size_t vp_readfileS(char* ptr, const char* fileName, const size_t bufSize);
 
 // ### Gets the size of a file.

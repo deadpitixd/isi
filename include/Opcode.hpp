@@ -8,13 +8,18 @@ enum OpCode : uint {
     OP_MUL,
     OP_DIV,
 
-    OP_STORE,
+    OP_STORE, // 5
     OP_LOAD,
 
-    OP_JMP,
+    OP_JMP, // 7
     OP_JMP_IF_FALSE,
 
-    OP_HALT,
+    OP_EQUALS, // 9
+    OP_NOT_EQUALS,
+    OP_GREATER,
+    OP_LESS,
+
+    OP_HALT, // 13
     // print will be deprecated later, and added in the API
     OP_PRINT
 };
