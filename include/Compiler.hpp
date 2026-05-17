@@ -1,3 +1,5 @@
+#ifndef __PITI_COMPILER_HPP
+#define __PITI_COMPILER_HPP
 #include <AST.hpp>
 #include <iostream>
 #include <vector>
@@ -25,6 +27,8 @@ constexpr std::string_view enum_to_string(E value) {
 struct Symbol {
     int index;
     DataType type;
+    bool isConst=false;
+    Value constValue;
 };
 
 struct Instruction{
@@ -156,7 +160,11 @@ class Compiler{
                 }
             }
             else if (auto var = dynamic_cast<VariableExpr*>(node.get())) {
-                emitInstruction(OP_LOAD, getVariableIndex(var->name, DataType::INT));
+                if (symbolTable[var->name].isConst){
+                    emitInstruction(OP_PUSH, symbolTable[var->name].constValue);
+                }
+                else
+                    emitInstruction(OP_LOAD, getVariableIndex(var->name, DataType::INT));
             }
             else if (auto assign = dynamic_cast<AssignExpr*>(node.get())) {
                 compileExpression(assign->value);
@@ -278,6 +286,7 @@ class Compiler{
                 if (tokens[i].lexeme == "else"){ tokens[i].type = TOKEN_ELSE; }
                 if (tokens[i].lexeme == "while"){ tokens[i].type = TOKEN_WHILE; }
                 if (tokens[i].lexeme == "exit"){ tokens[i].type = TOKEN_EXIT; }
+                if (tokens[i].lexeme == "const"){ tokens[i].type = TOKEN_CONST; }
                 if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
@@ -289,7 +298,12 @@ class Compiler{
         std::vector<std::unique_ptr<Stmt>> parseBlock(std::vector<Token>& tokens) {
             std::vector<std::unique_ptr<Stmt>> blockStatements;
             
+            bool isConstDecl=false;
             while (!isAtEnd() && tokens[current].type != TOKEN_RBRACE) {
+                if (tokens[current].type == TOKEN_CONST){
+                    isConstDecl=true;
+                    current++;
+                }
                 if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T) {
                     DataType type;
                     if (tokens[current].type == TOKEN_INT) type = DataType::INT;
@@ -311,13 +325,18 @@ class Compiler{
 
                         if (tokens[current].type == TOKEN_SEMICOLON) current++;
                         
-                        blockStatements.push_back(std::make_unique<VarDeclStmt>(type, name, std::move(initializer)));
+                        blockStatements.push_back(std::make_unique<VarDeclStmt>(type, name, std::move(initializer), isConstDecl));
+                        isConstDecl = false;
                         continue;
                     }
                 }
                 if (tokens[current].type == TOKEN_IDENTIFIER && peek(1).type == TOKEN_EQUALS && peek(2).type != TOKEN_EQUALS) {
                     std::string name = tokens[current].lexeme;
                     current += 2;
+
+                    if (symbolTable.contains(name) && symbolTable[name].isConst){
+                        throwError("Cannot assign a value to an constant variable '" + name + "'", -2);
+                    }
 
                     std::unique_ptr<Expr> value = expression();
                     
@@ -437,24 +456,38 @@ class Compiler{
             return blockStatements;
         }
 
-        std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens) {
-            if (debug || useDevEnv) std::cout << "AST\n";
-            std::vector<std::unique_ptr<Stmt>> statements;
-            errTokens = tokens;
-            while (current < tokens.size() && tokens[current].type != TOKEN_EOF) {
-                errTokens = tokens;
-                current = 0;
-                return parseBlock(tokens);
-            }
-            return parseBlock(tokens);
-        }
+    std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens) {
+        if (debug || useDevEnv) std::cout << "AST\n";
+        errTokens = tokens;
+        current = 0; // Set up tracker cleanly at the beginning
+        return parseBlock(tokens); // Parse everything until EOF
+    }
         
         void compileSingle(const std::unique_ptr<Stmt>& node) {
-            if (auto decl = dynamic_cast<VarDeclStmt*>(node.get())) {
-                int index = getVariableIndex(decl->name, decl->type);
-                if (decl->initializer) {
-                    compileExpression(decl->initializer); 
-                    emitInstruction(OP_STORE, index);
+            if (auto varDecl = dynamic_cast<VarDeclStmt*>(node.get())) {
+                if (varDecl->initializer) {
+                    compileExpression(varDecl->initializer);
+                }
+
+                Value compileTimeValue = 0;
+                if (varDecl->isConstant) { 
+                    if (!Code.empty() && Code.back().op == OP_PUSH) {
+                        compileTimeValue = Code.back().value;
+                        Code.pop_back(); 
+                    }
+                }
+
+                Symbol newSymbol;
+                newSymbol.index = nextAvailableIndex++;
+                newSymbol.type = varDecl->type;
+                
+                newSymbol.isConst = varDecl->isConstant; 
+                
+                newSymbol.constValue = compileTimeValue;
+                symbolTable[varDecl->name] = newSymbol;
+
+                if (!newSymbol.isConst) {
+                    emitInstruction(OP_STORE, newSymbol.index);
                 }
             }
             else if (auto exprStmt = dynamic_cast<ExpressionStmt*>(node.get())) {
@@ -721,3 +754,4 @@ public:
         return INT32_MAX;
     }
 };
+#endif

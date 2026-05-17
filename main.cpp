@@ -15,6 +15,7 @@ std::unordered_set<std::string> flags = {};
 #include <Other.hpp>
 #include <filesystem>
 #include <Compiler.hpp>
+#include <Optimizer.hpp>
 #define __VAPOR_H_EXC_INI
 // some stuff for some easier thingies
 #include <vapor/vapor.h>
@@ -29,14 +30,16 @@ int main(int argc, char* argv[]){
     bool readFlag=true;
     if (fileName == "--percentflag") {
         readFlag = false;
+        fileName = argv[2];
     }
     if (fileName == "--assemble"){
         assembleMode=1;
+        fileName = argv[2];
     }
     if (fileName == "--disassemble"){
         assembleMode=2;
+        fileName = argv[2];
     }
-    fileName = argv[2];
     // Adds extension
     if (fileName.ends_with(".isic")) compiledBin = true;
     if (!compiledBin && !fileName.ends_with(".isi")) {fileName+=".isi";};
@@ -145,6 +148,10 @@ int main(int argc, char* argv[]){
     auto nodes = compiler.makeAST(lexed);
     compiler.compile(nodes);
     std::vector<Instruction> compiled = compiler.getCode();
+
+    if (flags.contains("--o")){
+        compiled = Optimize(compiled);
+    }
 
     if (flags.contains("--compile")){
         //filename.isic

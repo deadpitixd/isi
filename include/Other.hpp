@@ -66,6 +66,7 @@ enum isiTokenType : uint{
     TOKEN_IF,
     TOKEN_ELSE,
     TOKEN_WHILE,
+    TOKEN_CONST,
 
     // operators
     TOKEN_PLUS,

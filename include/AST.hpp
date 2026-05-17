@@ -54,8 +54,9 @@ struct VarDeclStmt : public Stmt {
     DataType type;
     std::string name;
     std::unique_ptr<Expr> initializer;
-    VarDeclStmt(DataType t, std::string n, std::unique_ptr<Expr> init)
-        : type(t), name(std::move(n)), initializer(std::move(init)) {}
+    bool isConstant;
+    VarDeclStmt(DataType t, std::string n, std::unique_ptr<Expr> init, bool isCon)
+        : type(t), name(std::move(n)), initializer(std::move(init)), isConstant(isCon) {}
 };
 
 struct PrintStmt : public Stmt {

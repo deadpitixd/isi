@@ -1,2 +1,2 @@
-print("Test");
-exit(4);
+const int x = 12;
+print(x);
