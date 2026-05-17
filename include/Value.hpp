@@ -35,4 +35,8 @@ enum class DataType { INT, FLOAT, STRING, BOOL, CHAR};
 
 using Value = std::variant<std::monostate, int, double, std::string, bool, char>;
 
+constexpr bool isNull(const Value& val){
+    return std::holds_alternative<std::monostate>(val);
+}
+
 #endif

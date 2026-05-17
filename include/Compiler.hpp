@@ -39,7 +39,7 @@ struct Instruction{
 class Compiler{
     private:
     std::map<std::string, Symbol> symbolTable;
-    int nextAvailableIndex = 0;
+    int nextAvailableIndex = 1;
     std::vector<Instruction> Code;
     std::vector<DataType> indexTypes;
     void emitByte(uint32_t byte) {
@@ -654,8 +654,11 @@ private:
 
 public: 
     int run(const std::vector<Instruction>& code, const std::vector<DataType>& indexTypes) {
+        globals.clear();
+        stack.clear();
         globals.reserve(512);
         stack.reserve(1024);
+        globals.push_back(std::monostate{});
         const Instruction* rawCode = code.data();
         const size_t codeSize = code.size();
         pc = 0;
@@ -742,7 +745,7 @@ public:
                 case OP_STORE: {
                     int index = (int)valueToInt(instr.value);
                     Value val = pop();
-
+                    if (index == 0){ throwError("Cannot store on index 0", -1, true, "Forbidden Access"); }
                     if (index < indexTypes.size()) {
                         if (indexTypes[index] == DataType::INT && std::holds_alternative<double>(val) || std::holds_alternative<std::string>(val)) {
                             throwError("Cannot store " + std::string(enum_to_string(indexTypes[index])) + " value into " + std::string(enum_to_string(valueToType(val))) + " variable", -1, true);
@@ -758,8 +761,11 @@ public:
                 case OP_LOAD: {
                     if (std::holds_alternative<int>(instr.value)) {
                         const int index = std::get<int>(instr.value);
-                        if (globals.size() < index){
+                        if (globals.size() <= index){
                             throwError("Stack Underflow", -1);
+                        }
+                        if (isNull(globals[index])){
+                            throwError("No variable declared or variable is null.", -1);
                         }
                         push(globals[index]);
                     }

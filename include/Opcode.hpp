@@ -19,6 +19,10 @@ enum OpCode : uint {
     OP_GREATER,
     OP_LESS,
 
+    OP_CALL,
+    OP_LOAD_LOCAL,
+    OP_STORE_LOCAL,
+
     OP_HALT, // 13
     // print will be deprecated later, and added in the API
     OP_PRINT
