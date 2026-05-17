@@ -7,7 +7,8 @@ const highlightCode = () => {
     const rules = [
       { type: 'comment',  regex: /(\/\/.*|\/\*[\s\S]*?\*\/)/g },
       { type: 'string',   regex: /("(?:\\"|[^"])*"|'(?:\\'|[^'])*')/g },
-      { type: 'keyword',  regex: /\b(int|float|char|string|bool|while|if|else|lib)\b(?![^<>]*>)/g },
+      { type: 'type',     regex: /\b(int|float|char|string|bool|while|if|else|lib)\b(?![^<>]*>)/g },
+      { type: 'keyword',  regex: /\b(const|while|if|else|lib)\b(?![^<>]*>)/g },
       { type: 'func',     regex: /\b([a-z_][a-z0-9_]*)(?=\()(?![^<>]*>)/gi }
     ];
 

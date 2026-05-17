@@ -1,14 +1,16 @@
 <!-- Use this as a template for funcs -->
 <head>
-    <title>ISI Functions - cout()</title>
+    <title>ISI Functions - print()</title>
     <link rel="stylesheet" href="../style.css">
-    <script src="func.js"></script>
+    <script src="../func.js"></script>
+    <script type="module" src="../macros.js"></script>
+</head>
     <body>
         <div class="content-wrapper">
         <div class="iframe-container">
         <iframe src="../templates/menubuttons.html"></iframe>
         </div>
-        <h1><span class="b">cout</span>()</h1>
+        <h1><span class="b">print</span>()</h1>
         <p>Allows user to output text into the command line.<br></p>
 
         <h4>
@@ -16,12 +18,13 @@
         </h4>
         <div class="container">
             <code>
-            <span class="b">cout</span>(<span class="y">arguments [any]</span>);
+            <span class="b">print</span>(<span class="y">arguments [any]</span>);
             </code>
         </div>
         <br>
-        cout() can take as many arguments as it is required, but they must have commas in-beetween them.
+        print(...) takes arguments inputted into it, and prints them out to the console.
         <br>
+        <br>[[oldFeatureDeprecate]]<br>
         There also exist ANSI codes built into accessible by calling these variables:
         <br><br>
         <div class="container">
@@ -57,4 +60,3 @@
         
         </div>
     </body>
-</head>

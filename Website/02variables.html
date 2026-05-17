@@ -4,7 +4,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="func.js"></script>
     <script src="syntax.js"></script>
-    <script src="macros.js"></script>
+    <script type="module" src="macros.js"></script>
 </head>
 <body>
     <div class="content-wrapper">
@@ -12,7 +12,7 @@
     <iframe src="templates/menubuttons.html"></iframe>
     </div>
         <h1>Variables</h1>
-        <p>Currently as of ISI [[isiVersion]], there are 5 data types,<br>they are:<br>
+        <p>Currently as of ISI <span class="g">[[isiVersion]]</span>, there are 5 data types,<br>they are:<br>
         int, float, char, string and bool.<br><br>
         <span class="r">Note:</span> <span class="b">Floats in ISI are the same as C++ doubles</span>.</p>
         
@@ -70,6 +70,13 @@ You can also concatenate strings:
 <pre><code class="syntax-highlight" data-lang="javascript">string text1 = "Hello ";
 string text2 = "World!";
 string text = text1 + text2; # Hello World! #
+</code></pre>
+        <h3>Constants</h3>
+        </p>Constants are in ISI since ISI <span class="g">[[isiVersionCommit:A1]]</span>
+        <br>
+        They are static values that can't change on runtime.<br>
+        To make a constant variable you do this:
+<pre><code class="syntax-highlight" data-lang="javascript">const int x = 12;
 </code></pre>
         <div class="button-group">
           <a href="01basicSyntax.html"><button class="nav-button">Previous Chapter</button></a>

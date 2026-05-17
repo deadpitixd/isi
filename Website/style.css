@@ -24,7 +24,8 @@ h1{
   overflow-x: auto;
 }
 
-.code-keyword { color: #569cd6; font-weight: bold; }
+.code-keyword { color: #ff6969; }
+.code-type { color: #569cd6; font-weight: bold; }
 .code-string  { color: #ce9178; }
 .code-comment { color: #6a9955; font-style: italic; }
 .code-function { color: #dcdcaa; }
@@ -168,4 +169,26 @@ code span {
     padding: 10px 20px;
     border-radius: 6px;
     font-family: "Corbel", sans-serif;
+}
+
+.inline-commit {
+    display: inline;
+}
+
+.inline-commit summary {
+    display: inline;
+    list-style: none;
+    cursor: pointer;
+}
+
+.inline-commit summary::-webkit-details-marker {
+    display: none;
+}
+
+.inline-commit summary:hover {
+    text-decoration: underline;
+}
+
+.inline-commit[open] span {
+    margin-left: 5px;
 }

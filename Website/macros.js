@@ -3,13 +3,31 @@ const replaceMacrosFromJSON = async () => {
   if (!contentArea) return;
 
   try {
-    const response = await fetch('macros.json');
+    const scriptUrl = new URL(import.meta.url || document.currentScript.src);
+    const jsonPath = new URL('macros.json', scriptUrl).href;
+
+    const response = await fetch(jsonPath);
     const macroVariables = await response.json();
 
     let html = contentArea.innerHTML;
-    const macroRegex = /\[\[([a-zA-Z0-9_]+)\]\]/g;
+    
+    const macroRegex = /\[\[([a-zA-Z0-9_]+)(?::([a-zA-Z0-9_]+))?\]\]/g;
 
-    html = html.replace(macroRegex, (match, key) => {
+    html = html.replace(macroRegex, (match, key, subkey) => {
+      if (subkey) {
+        if (macroVariables.hasOwnProperty(key) && macroVariables[key].hasOwnProperty(subkey)) {
+          const commitHash = macroVariables[key][subkey];
+          
+          return `
+            <details class="inline-commit">
+              <summary class="g">${subkey}</summary>
+              <span class="g">(COMMIT: ${commitHash})</span>
+            </details>
+          `.trim();
+        }
+        return match;
+      }
+
       return macroVariables.hasOwnProperty(key) ? macroVariables[key] : match;
     });
 
