@@ -3,37 +3,32 @@
     <link rel="stylesheet" href="style.css">
     <script src="func.js"></script>
     <script src="syntax.js"></script>
-    <body>
+    <script type="module" src="macros.js"></script>
+</head>
+<body>
         <div class="content-wrapper">
         <div class="iframe-container">
         <iframe src="templates/menubuttons.html"></iframe>
         </div>
-        <h1>Interscript Introduction</h1>
-        <p>
-            Welcome to ISI (Interscript Interpreted), here you'll learn how to code<br>
-        This langauge is simple, almost python-like simple, but has things similar to C++.</p>
-
-        First, to run the code, use:
-        <br><br>
-        <div class="container">
-            <code>
-            <span class="b">./isi</span>
-            <span class="r">filename</span><span class="p">.</span><span class="g">isi</span>;
-            </code>
-        </div>
+        <h1>Introduction</h1>
+        <p>Welcome to ISI!</p>
+        This language is interpreted, and you might find that it's syntaxically<br>
+        similiar to C++, so any experience with C++ will help.<br>
         <br>
-        Most functions (Blue Keywords) can be clicked, and they will lead to their reference page.
+        The newest version of this language is <span class="g">[[isiVersionCommit:[[isiVersion]]]]</span>
+        <br>
+        You should get the interpreter from <a href="https://github.com/deadpitixd/isi" class="b">github</a> or the <a href="download.html" class="b">downloads</a> page.
         <br><br>
-        Try to hover over print() and click it.
-        <br><br>
-        <div class="container">
-            <span class="b func">print</span>();
-        </div>
+        Basic syntax looks like this:
+<pre><code class="syntax-highlight" data-lang="javascript">int x = 5;
+</code></pre>
+        <br>
+        Here, the program defines a variable named '<span class="y">x</span>', that is an integer, then, it assigns the value <span class="r">5</span> to it.
+        <br>
         
         <div class="button-group">
-            <button class="dis-nav-button" disabled>Previous Chapter</button>
-            <a href="01basicSyntax.html"><button class="nav-button">Next Chapter</button></a>
+          <button disabled class="dis-nav-button">Previous Chapter</button>
+          <a href="01basicSyntax.html"><button class="nav-button">Next Chapter</button></a>
         </div>
         </div>
-    </body>
-</head>
+</body>

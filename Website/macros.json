@@ -3,5 +3,6 @@
     "isiVersionCommit":{
         "A1":"c4688b20224c6ea9c59f873a2292c98945fd03b2"
     },
-    "oldFeatureDeprecate":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is deprecated or doesn't exist anymore.</span>"
+    "oldFeatureDeprecate":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is deprecated or doesn't exist anymore.</span>",
+    "oldReadd":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is yet to be readded.</span>"
 }
