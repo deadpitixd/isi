@@ -79,12 +79,25 @@ int main(int argc, char* argv[]){
         free(buf);
 
         std::vector<Instruction> instr;
+        std::vector<DataType> loadedTypes;
         std::string currentLine;
         std::stringstream ss(code);
 
         while (std::getline(ss, currentLine, ';')) {
             currentLine.erase(std::remove(currentLine.begin(), currentLine.end(), '\n'), currentLine.end());
             if (currentLine.empty()) continue;
+
+            if (currentLine.starts_with("TYPES|")) {
+                std::string typesPart = currentLine.substr(6);
+                std::stringstream tss(typesPart);
+                std::string typeVal;
+                while (std::getline(tss, typeVal, ',')) {
+                    if (!typeVal.empty()) {
+                        loadedTypes.push_back(static_cast<DataType>(std::stoi(typeVal)));
+                    }
+                }
+                continue;
+            }
 
             size_t pipePos = currentLine.find('|');
             if (pipePos != std::string::npos) {
@@ -112,7 +125,8 @@ int main(int argc, char* argv[]){
                 std::println("Op: {}, Val: {}", enum_to_string(i.op), valueToString(i.value));
             }
         }
-        int errc = vm.run(instr);
+        
+        int errc = vm.run(instr, loadedTypes);
         if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
         return errc;
     }
@@ -148,16 +162,26 @@ int main(int argc, char* argv[]){
     auto nodes = compiler.makeAST(lexed);
     compiler.compile(nodes);
     std::vector<Instruction> compiled = compiler.getCode();
-
+    
     if (flags.contains("--o")){
         compiled = Optimize(compiled);
     }
 
     if (flags.contains("--compile")){
-        //filename.isic
         const std::string nFileName = (fileName + "c").c_str();
-        // Makes an empty file
         vp_RWwritefile(nFileName.c_str(), "");
+        
+        std::string header = "TYPES|";
+        const auto& types = compiler.getIndexTypes();
+        for (size_t i = 0; i < types.size(); i++) {
+            header += std::to_string(static_cast<int>(types[i]));
+            if (i + 1 < types.size()) {
+                header += ",";
+            }
+        }
+        header += ";\n";
+        vp_Awritefile(nFileName.c_str(), header.c_str());
+
         for (Instruction i : compiled){
             if (valueToString(i.value).empty())
                 vp_Awritefile(nFileName.c_str(), (std::to_string((uint)i.op).c_str() + (std::string)";\n").c_str());
@@ -166,7 +190,7 @@ int main(int argc, char* argv[]){
         }
     }
 
-    int errc = vm.run(compiled);
+    int errc = vm.run(compiled, compiler.getIndexTypes());
     if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
     return errc;
 }

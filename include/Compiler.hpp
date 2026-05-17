@@ -41,6 +41,7 @@ class Compiler{
     std::map<std::string, Symbol> symbolTable;
     int nextAvailableIndex = 0;
     std::vector<Instruction> Code;
+    std::vector<DataType> indexTypes;
     void emitByte(uint32_t byte) {
         Code.push_back({static_cast<OpCode>(byte), {}});
     }
@@ -70,6 +71,13 @@ class Compiler{
     const Token& previous() {
         return errTokens[current - 1];
     }
+
+    bool isTypeCompatible(DataType expected, DataType given) {
+        if (expected == given) return true;
+        if (expected == DataType::FLOAT && given == DataType::INT) return true;
+        return false;
+    }
+
     public:
         std::unique_ptr<Expr> primary() {
             if (errTokens[current].type == TOKEN_NUMBER || errTokens[current].type == TOKEN_STRING) {
@@ -146,33 +154,54 @@ class Compiler{
             }
             return addition();
         }
-        void compileExpression(const std::unique_ptr<Expr>& node) {
+
+        DataType compileExpression(const std::unique_ptr<Expr>& node) {
             if (auto literal = dynamic_cast<LiteralExpr*>(node.get())) {
                 std::string valStr = valueToString(literal->value);
                 if (isDigit(valStr)) {
                     if (valStr.find('.') != std::string::npos) {
                         emitInstruction(OP_PUSH, std::stod(valStr));
+                        return DataType::FLOAT;
                     } else {
                         emitInstruction(OP_PUSH, std::stoi(valStr));
+                        return DataType::INT;
                     }
                 } else {
                     emitInstruction(OP_PUSH, literal->value); 
+                    return DataType::STRING;
                 }
             }
             else if (auto var = dynamic_cast<VariableExpr*>(node.get())) {
                 if (symbolTable[var->name].isConst){
                     emitInstruction(OP_PUSH, symbolTable[var->name].constValue);
                 }
-                else
-                    emitInstruction(OP_LOAD, getVariableIndex(var->name, DataType::INT));
+                else {
+                    emitInstruction(OP_LOAD, getVariableIndex(var->name, symbolTable[var->name].type));
+                }
+                return symbolTable[var->name].type;
             }
             else if (auto assign = dynamic_cast<AssignExpr*>(node.get())) {
-                compileExpression(assign->value);
-                emitInstruction(OP_STORE, getVariableIndex(assign->name, DataType::INT));
+                DataType rhsType = compileExpression(assign->value);
+                DataType lhsType = symbolTable[assign->name].type;
+                
+                if (!isTypeCompatible(lhsType, rhsType)) {
+                    throwError("Cannot assign " + typeToString(rhsType) + 
+                            " to variable '" + assign->name + "' of type " + typeToString(lhsType), -1, false, "Type Error");
+                }
+
+                emitInstruction(OP_STORE, getVariableIndex(assign->name, lhsType));
+                return lhsType;
             }
             else if (auto binary = dynamic_cast<BinaryExpr*>(node.get())) {
-                compileExpression(binary->left);
-                compileExpression(binary->right);
+                DataType leftType = compileExpression(binary->left);
+                DataType rightType = compileExpression(binary->right);
+                
+                if (binary->op.type != TOKEN_PLUS && binary->op.type != TOKEN_EQUALS && binary->op.type != TOKEN_NOT_EQUALS) {
+                    if ((leftType != DataType::INT && leftType != DataType::FLOAT) ||
+                        (rightType != DataType::INT && rightType != DataType::FLOAT)) {
+                        throwError("Math operators require numeric types.", -1, false, "Type Error");
+                    }
+                }
                 
                 switch (binary->op.type) {
                     case TOKEN_PLUS:  emitByte(OP_ADD); break;
@@ -183,8 +212,18 @@ class Compiler{
                     case TOKEN_NOT_EQUALS: emitByte(OP_NOT_EQUALS); break;
                     default: break;
                 }
+
+                if (binary->op.type == TOKEN_EQUALS || binary->op.type == TOKEN_NOT_EQUALS) {
+                    return DataType::INT;
+                }
+
+                if (leftType == DataType::STRING || rightType == DataType::STRING) return DataType::STRING;
+                if (leftType == DataType::FLOAT || rightType == DataType::FLOAT) return DataType::FLOAT;
+                return DataType::INT;
             }
+            return DataType::INT;
         }
+
         int getVariableIndex(const std::string& name, DataType type){
             auto it = symbolTable.find(name);
             if (it != symbolTable.end()){
@@ -192,9 +231,15 @@ class Compiler{
             }
             int index = nextAvailableIndex++;
             symbolTable[name] = { index, type };
+
+            if (index >= indexTypes.size()) {
+                indexTypes.resize(index + 1);
+            }
+            indexTypes[index] = type;
     
             return index;
         }
+
         std::vector<Token> lex(const std::string& src) {
             std::vector<Token> tokens;
             int i = 0;
@@ -456,17 +501,21 @@ class Compiler{
             return blockStatements;
         }
 
-    std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens) {
-        if (debug || useDevEnv) std::cout << "AST\n";
-        errTokens = tokens;
-        current = 0; // Set up tracker cleanly at the beginning
-        return parseBlock(tokens); // Parse everything until EOF
-    }
+        std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens) {
+            if (debug || useDevEnv) std::cout << "AST\n";
+            errTokens = tokens;
+            current = 0; 
+            return parseBlock(tokens); 
+        }
         
         void compileSingle(const std::unique_ptr<Stmt>& node) {
             if (auto varDecl = dynamic_cast<VarDeclStmt*>(node.get())) {
                 if (varDecl->initializer) {
-                    compileExpression(varDecl->initializer);
+                    DataType rhsType = compileExpression(varDecl->initializer);
+                    if (!isTypeCompatible(varDecl->type, rhsType)) {
+                        throwError("Cannot initialize '" + varDecl->name + "' of type " + 
+                                typeToString(varDecl->type) + " with " + typeToString(rhsType), -1, false, "Type Error");
+                    }
                 }
 
                 Value compileTimeValue = 0;
@@ -480,14 +529,17 @@ class Compiler{
                 Symbol newSymbol;
                 newSymbol.index = nextAvailableIndex++;
                 newSymbol.type = varDecl->type;
-                
                 newSymbol.isConst = varDecl->isConstant; 
-                
                 newSymbol.constValue = compileTimeValue;
                 symbolTable[varDecl->name] = newSymbol;
 
+                if (newSymbol.index >= indexTypes.size()) {
+                    indexTypes.resize(newSymbol.index + 1);
+                }
+                indexTypes[newSymbol.index] = varDecl->type;
+
                 if (!newSymbol.isConst) {
-                    emitInstruction(OP_STORE, newSymbol.index);
+                    emitInstruction(OP_STORE, getVariableIndex(varDecl->name, varDecl->type));
                 }
             }
             else if (auto exprStmt = dynamic_cast<ExpressionStmt*>(node.get())) {
@@ -570,6 +622,9 @@ class Compiler{
         constexpr std::vector<Instruction> getCode(){
             return Code;
         }
+        const std::vector<DataType>& getIndexTypes() const {
+            return indexTypes;
+        }
 };
 
 class VirtualMachine {
@@ -598,7 +653,7 @@ private:
     }
 
 public: 
-    int run(const std::vector<Instruction>& code) {
+    int run(const std::vector<Instruction>& code, const std::vector<DataType>& indexTypes) {
         globals.reserve(512);
         stack.reserve(1024);
         const Instruction* rawCode = code.data();
@@ -648,7 +703,7 @@ public:
                         double result = (double)(valueToFloat(a) * valueToFloat(b));
                         push(result);
                     } else {
-                        int result = valueToInt(a) * valueToInt(b);
+                        int result = valueToInt(a) - valueToInt(b);
                         push(result);
                     }
                     break;
@@ -687,6 +742,13 @@ public:
                 case OP_STORE: {
                     int index = (int)valueToInt(instr.value);
                     Value val = pop();
+
+                    if (index < indexTypes.size()) {
+                        if (indexTypes[index] == DataType::INT && std::holds_alternative<double>(val) || std::holds_alternative<std::string>(val)) {
+                            throwError("Cannot store " + std::string(enum_to_string(indexTypes[index])) + " value into " + std::string(enum_to_string(valueToType(val))) + " variable", -1, true);
+                        }
+                    }
+
                     if (index >= globals.size()) globals.resize(index + 1);
                     globals[index] = val;
                 
@@ -712,7 +774,6 @@ public:
                     if (result == -1) throwError("Condition is not a number",-1,1);
                     if (result == 0){
                         pc += valueToInt(instr.value);
-                        //continue;
                     }
                     break;
                 }
