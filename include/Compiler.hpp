@@ -831,7 +831,8 @@ public:
                     return valueToInt(out);
                 }
                 default:
-                    std::cerr << "Unknown OpCode: " << instr.op << std::endl;
+                    throwError("Unknown OpCode met during runtime", -1, true, "OpCode Error");
+                    // Throws a garbage value
                     return -INT32_MAX;
             }
             pc++;
