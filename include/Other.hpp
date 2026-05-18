@@ -48,6 +48,16 @@ namespace ISI_Color {
     inline constexpr const char* bg_white   = "\033[47m";
 }
 
+template <typename E>
+constexpr std::string_view enum_to_string(E value) {
+    template for (constexpr auto member : std::define_static_array(std::meta::enumerators_of(^^E))) {
+        if (value == [:member:]) {
+            return std::meta::display_string_of(member);
+        }
+    }
+    return "<unknown>";
+}
+
 enum class FuncType {
     INT, FLOAT, STRING, BOOL, VOID
 };
@@ -290,4 +300,12 @@ DataType getLiteralType(const std::string& lexeme) {
 
 inline bool isNumeric(const Value& val) {
     return std::holds_alternative<int>(val) || std::holds_alternative<double>(val);
+}
+
+bool compatibleTypes(DataType a, DataType b){
+    if (a == b) return true;
+    if (a == DataType::INT && b == DataType::FLOAT || b == DataType::STRING) {
+        return false;
+    }
+    return true;
 }

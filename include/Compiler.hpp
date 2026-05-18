@@ -8,22 +8,6 @@
 #include <cmath>
 #include <variant>
 
-bool isDigit(const std::string& s) {
-    if (s.empty()) return false;
-    size_t start = (s[0] == '-') ? 1 : 0;
-    return s.find_first_not_of("0123456789.", start) == std::string::npos;
-}
-
-template <typename E>
-constexpr std::string_view enum_to_string(E value) {
-    template for (constexpr auto member : std::define_static_array(std::meta::enumerators_of(^^E))) {
-        if (value == [:member:]) {
-            return std::meta::display_string_of(member);
-        }
-    }
-    return "<unknown>";
-}
-
 struct Symbol {
     int index;
     DataType type;
@@ -33,6 +17,7 @@ struct Symbol {
 
 class Compiler{
     private:
+    DataType currentFunctionReturnType = DataType::INT;
     std::map<std::string, Function> functionTable;
     bool isCompilingFunction = false;
     int nextLocalIndex = 0;
@@ -167,12 +152,15 @@ class Compiler{
             }
             return addition();
         }
-
         DataType compileExpression(const std::unique_ptr<Expr>& node) {
             if (auto literal = dynamic_cast<LiteralExpr*>(node.get())) {
                 std::string valStr = valueToString(literal->value);
-                if (isDigit(valStr)) {
-                    if (valStr.find('.') != std::string::npos) {
+                
+                bool isNumeric = !valStr.empty() && valStr.find_first_not_of("-0123456789.") == std::string::npos;
+
+                if (isNumeric) {
+                    DataType litType = getLiteralType(valStr);
+                    if (litType == DataType::FLOAT) {
                         emitInstruction(OP_PUSH, std::stod(valStr));
                         return DataType::FLOAT;
                     } else {
@@ -180,7 +168,7 @@ class Compiler{
                         return DataType::INT;
                     }
                 } else {
-                    emitInstruction(OP_PUSH, literal->value); 
+                    emitInstruction(OP_PUSH, literal->value);
                     return DataType::STRING;
                 }
             }
@@ -192,13 +180,16 @@ class Compiler{
                     emitInstruction(OP_LOAD_LOCAL, localSymbolTable[var->name]);
                     return localTypes[var->name];
                 }
-                if (symbolTable[var->name].isConst){
-                    emitInstruction(OP_PUSH, symbolTable[var->name].constValue);
+                if (symbolTable.contains(var->name)) {
+                    if (symbolTable[var->name].isConst){
+                        emitInstruction(OP_PUSH, symbolTable[var->name].constValue);
+                    }
+                    else {
+                        emitInstruction(OP_LOAD, symbolTable[var->name].index);
+                    }
+                    return symbolTable[var->name].type;
                 }
-                else {
-                    emitInstruction(OP_LOAD, getVariableIndex(var->name, symbolTable[var->name].type));
-                }
-                return symbolTable[var->name].type;
+                throwError("Undeclared variable: " + var->name, -1);
             }
             else if (auto assign = dynamic_cast<AssignExpr*>(node.get())) {
                 DataType rhsType = compileExpression(assign->value);
@@ -208,13 +199,24 @@ class Compiler{
                     return rhsType;
                 }
                 
-                DataType lhsType = symbolTable[assign->name].type;
-                if (!isTypeCompatible(lhsType, rhsType)) {
-                    throwError("Cannot assign " + std::string(enum_to_string(rhsType)) + 
-                            " to variable '" + assign->name + "' of type " + std::string(enum_to_string(lhsType)), -1, false, "Type Error");
+                if (symbolTable.contains(assign->name)) {
+                    DataType lhsType = symbolTable[assign->name].type;
+                    if (!isTypeCompatible(lhsType, rhsType)) {
+                        throwError("Cannot assign " + std::string(typeToString(rhsType)) + 
+                                " to variable '" + assign->name + "' of type " + std::string(typeToString(lhsType)), -1, false, "Type Error");
+                    }
+                    emitInstruction(OP_STORE, symbolTable[assign->name].index);
+                    return lhsType;
                 }
-                emitInstruction(OP_STORE, getVariableIndex(assign->name, lhsType));
-                return lhsType;
+                
+                if (isCompilingFunction) {
+                    localSymbolTable[assign->name] = nextLocalIndex++;
+                    localTypes[assign->name] = rhsType;
+                    emitInstruction(OP_STORE_LOCAL, localSymbolTable[assign->name]);
+                    return rhsType;
+                }
+                
+                throwError("Undeclared variable assignment: " + assign->name, -1);
             }
             else if (auto call = dynamic_cast<CallExpr*>(node.get())) {
                 if (!functionTable.contains(call->callee)) {
@@ -226,9 +228,17 @@ class Compiler{
                     throwError("Function '" + call->callee + "' expects " + std::to_string(func.params.size()) + " arguments, but got " + std::to_string(call->arguments.size()), -1);
                 }
 
-                for (const auto& arg : call->arguments) {
-                    compileExpression(arg);
+                for (size_t i = 0; i < call->arguments.size(); i++) {
+                    DataType argType = compileExpression(call->arguments[i]); 
+                    DataType paramType = func.params[i].type;
+                    
+                    if (!compatibleTypes(paramType, argType)) {
+                        throwError("Type mismatch in function '" + call->callee + "' at argument " + std::to_string(i + 1) + 
+                                   ": Expected '" + std::string(typeToString(paramType)) + 
+                                   "', but got '" + std::string(typeToString(argType)) + "'", -1);
+                    }
                 }
+                
                 emitInstruction(OP_CALL, call->callee);
                 return func.returnType;
             }
@@ -441,6 +451,24 @@ class Compiler{
                         blockStatements.push_back(std::make_unique<FunctionDeclStmt>(type, funcName, parameters, funcBody, false));
                         continue;
                     }
+                    
+                    if (peek(1).type == TOKEN_IDENTIFIER) {
+                        current++;
+                        std::string varName = tokens[current].lexeme;
+                        current++;
+                        
+                        std::unique_ptr<Expr> initializer = nullptr;
+                        if (tokens[current].type == TOKEN_EQUALS) {
+                            current++;
+                            initializer = expression();
+                        }
+                        
+                        if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                        
+                        blockStatements.push_back(std::make_unique<VarDeclStmt>(type, varName, std::move(initializer), isConstDecl));
+                        isConstDecl = false;
+                        continue;
+                    }
                 }
                 if (tokens[current].type == TOKEN_IDENTIFIER && peek(1).type == TOKEN_EQUALS && peek(2).type != TOKEN_EQUALS) {
                     std::string name = tokens[current].lexeme;
@@ -589,32 +617,38 @@ class Compiler{
                     DataType rhsType = compileExpression(varDecl->initializer);
                     if (!isTypeCompatible(varDecl->type, rhsType)) {
                         throwError("Cannot initialize '" + varDecl->name + "' of type " + 
-                                std::string(enum_to_string(varDecl->type)) + " with " + std::string(enum_to_string(rhsType)), -1, false, "Type Error");
+                                std::string(typeToString(varDecl->type)) + " with " + std::string(typeToString(rhsType)), -1, false, "Type Error");
                     }
                 }
 
-                Value compileTimeValue = 0;
-                if (varDecl->isConstant) { 
-                    if (!Code.empty() && Code.back().op == OP_PUSH) {
-                        compileTimeValue = Code.back().value;
-                        Code.pop_back(); 
+                if (isCompilingFunction) {
+                    localSymbolTable[varDecl->name] = nextLocalIndex++;
+                    localTypes[varDecl->name] = varDecl->type;
+                    emitInstruction(OP_STORE_LOCAL, localSymbolTable[varDecl->name]);
+                } else {
+                    Value compileTimeValue = 0;
+                    if (varDecl->isConstant) { 
+                        if (!Code.empty() && Code.back().op == OP_PUSH) {
+                            compileTimeValue = Code.back().value;
+                            Code.pop_back(); 
+                        }
                     }
-                }
 
-                Symbol newSymbol;
-                newSymbol.index = nextAvailableIndex++;
-                newSymbol.type = varDecl->type;
-                newSymbol.isConst = varDecl->isConstant; 
-                newSymbol.constValue = compileTimeValue;
-                symbolTable[varDecl->name] = newSymbol;
+                    Symbol newSymbol;
+                    newSymbol.index = nextAvailableIndex++;
+                    newSymbol.type = varDecl->type;
+                    newSymbol.isConst = varDecl->isConstant; 
+                    newSymbol.constValue = compileTimeValue;
+                    symbolTable[varDecl->name] = newSymbol;
 
-                if (newSymbol.index >= indexTypes.size()) {
-                    indexTypes.resize(newSymbol.index + 1);
-                }
-                indexTypes[newSymbol.index] = varDecl->type;
+                    if (newSymbol.index >= indexTypes.size()) {
+                        indexTypes.resize(newSymbol.index + 1);
+                    }
+                    indexTypes[newSymbol.index] = varDecl->type;
 
-                if (!newSymbol.isConst) {
-                    emitInstruction(OP_STORE, getVariableIndex(varDecl->name, varDecl->type));
+                    if (!newSymbol.isConst) {
+                        emitInstruction(OP_STORE, getVariableIndex(varDecl->name, varDecl->type));
+                    }
                 }
             }
             else if (auto funcDecl = dynamic_cast<FunctionDeclStmt*>(node.get())) {
@@ -637,10 +671,13 @@ class Compiler{
                 int oldLocalIndex = nextLocalIndex;
                 auto oldLocalSymbols = localSymbolTable;
                 auto oldLocalTypes = localTypes;
+                DataType oldReturnType = currentFunctionReturnType;
 
                 isCompilingFunction = true;
+                currentFunctionReturnType = function.returnType;
                 localSymbolTable.clear();
                 localTypes.clear();
+                
                 nextLocalIndex = 0;
 
                 for (const auto& param : function.params) {
@@ -650,6 +687,9 @@ class Compiler{
 
                 Compiler localCompiler;
                 localCompiler.functionTable = this->functionTable;
+                localCompiler.isCompilingFunction = true;
+                localCompiler.currentFunctionReturnType = function.returnType;
+                
                 std::vector<Token> localTokens = function.body;
                 localTokens.push_back({TOKEN_EOF, "\0"});
                 auto bodyAST = localCompiler.makeAST(localTokens);
@@ -667,11 +707,26 @@ class Compiler{
                 nextLocalIndex = oldLocalIndex;
                 localSymbolTable = oldLocalSymbols;
                 localTypes = oldLocalTypes;
+                currentFunctionReturnType = oldReturnType;
             }
             else if (auto retStmt = dynamic_cast<ReturnStmt*>(node.get())) {
+                if (!isCompilingFunction) {
+                    throwError("Return statement used outside of a function scope", -1);
+                }
+
                 if (retStmt->value) {
-                    compileExpression(retStmt->value);
+                    DataType actualReturnType = compileExpression(retStmt->value);
+                    
+                    if (!compatibleTypes(currentFunctionReturnType, actualReturnType)) {
+                        throwError("Type mismatch: Function expects to return '" + 
+                                   std::string(typeToString(currentFunctionReturnType)) + 
+                                   "', but expression returns '" + 
+                                   std::string(typeToString(actualReturnType)) + "'", -1);
+                    }
                 } else {
+                    if (currentFunctionReturnType != DataType::VOID) {
+                        throwError("Empty return statement in a function expecting a value type", -1);
+                    }
                     emitInstruction(OP_PUSH, std::monostate{});
                 }
                 emitByte(OP_RETURN);
@@ -895,9 +950,8 @@ public:
                     Value val = pop();
                     if (index == 0){ throwError("Cannot store on index 0", -1, true, "Forbidden Access"); }
                     if (index < indexTypes.size()) {
-                        if (indexTypes[index] == DataType::INT && std::holds_alternative<double>(val) || std::holds_alternative<std::string>(val)) {
-                            throwError("Cannot store " + std::string(enum_to_string(indexTypes[index])) + " value into " + std::string(enum_to_string(valueToType(val))) + " variable", -1, true);
-                        }
+                        if (!compatibleTypes(indexTypes[index], valueToType(val)))
+                            throwError("Cannot store " + std::string(typeToString(indexTypes[index])) + " value into " + std::string(typeToString(valueToType(val))) + " variable", -1, true);
                     }
 
                     if (index >= globals.size()) globals.resize(index + 1);
@@ -1003,6 +1057,7 @@ public:
                     while (stack.size() > currentFrame.stackBase) {
                         pop();
                     }
+                    
                     push(retVal);
                     pc = currentFrame.returnAddress - 1;
                     break;
@@ -1016,10 +1071,11 @@ public:
                 case OP_STORE_LOCAL: {
                     int slot = valueToInt(instr.value);
                     int actualIndex = frames.back().stackBase + slot;
+                    Value val = pop();
                     if (actualIndex >= stack.size()) {
                         stack.resize(actualIndex + 1);
                     }
-                    stack[actualIndex] = pop();
+                    stack[actualIndex] = val;
                     break;
                 }
                 case OP_HALT:{

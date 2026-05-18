@@ -32,7 +32,7 @@ std::string getPlatformLibraryName(const std::string& baseName) {
 #endif
 }
 
-enum class DataType { INT, FLOAT, STRING, BOOL, CHAR};
+enum class DataType { INT, FLOAT, STRING, BOOL, CHAR, VOID};
 
 using Value = std::variant<std::monostate, int, double, std::string, bool, char>;
 

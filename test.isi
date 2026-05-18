@@ -1,5 +1,9 @@
-int add(int a, int b){
-    return a + b;
+int x = 3;
+
+int scopeTest(){
+    int x = 9;
 }
 
-print(add(5,3), "\n");
+scopeTest();
+
+print(x, "\n"); 
