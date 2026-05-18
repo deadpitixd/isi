@@ -1,7 +1,8 @@
 #include <cstdint>
 #define uint uint8_t
 
-enum OpCode : uint {
+enum OpCode : uint
+{
     OP_PUSH,
     OP_ADD,
     OP_SUB,
@@ -23,7 +24,7 @@ enum OpCode : uint {
     OP_LOAD_LOCAL,
     OP_STORE_LOCAL,
 
-    OP_BANG, // 16 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
+    OP_NOT, // 16 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
 
     OP_HALT, // 17
     // print will be deprecated later, and added in the API

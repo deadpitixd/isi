@@ -811,7 +811,7 @@ public:
                     push(a < b ? 1 : 0);
                     break;
                 }
-                case OP_BANG:{
+                case OP_NOT:{
                     const Value val = pop();
                     if (std::holds_alternative<int>(val)){
                         const int intVal = valueToInt(val);
@@ -819,10 +819,11 @@ public:
                             push(!intVal);
                         }
                     }
-                    //else if (std::holds_alternative<bool>(val)){
-                    //    const bool boolVal = valueToBool(val);
-                    //    push(!boolVal);
-                    //}
+                    else if (std::holds_alternative<bool>(val)){
+                        const bool boolVal = valueToBool(val);
+                        push(!boolVal);
+                    }
+                    break;
                 }
                 case OP_HALT:{
                     const Value out = pop();
