@@ -19,11 +19,13 @@ enum OpCode : uint {
     OP_GREATER,
     OP_LESS,
 
-    OP_CALL,
+    OP_CALL, // 13
     OP_LOAD_LOCAL,
     OP_STORE_LOCAL,
 
-    OP_HALT, // 13
+    OP_BANG, // 16 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
+
+    OP_HALT, // 17
     // print will be deprecated later, and added in the API
     OP_PRINT
 };

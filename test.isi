@@ -1,5 +1,8 @@
-int x = 8;
-while(x > 5){
-    print(x, "\n");
-    x = x - 1;
+int x = 9;
+if (x == 9){
+    print("x is 9\n");
+}
+else
+{
+    print("x isn't 9\n");
 }

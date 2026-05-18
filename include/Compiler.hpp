@@ -811,6 +811,19 @@ public:
                     push(a < b ? 1 : 0);
                     break;
                 }
+                case OP_BANG:{
+                    const Value val = pop();
+                    if (std::holds_alternative<int>(val)){
+                        const int intVal = valueToInt(val);
+                        if (intVal == 1 || intVal == 0){
+                            push(!intVal);
+                        }
+                    }
+                    //else if (std::holds_alternative<bool>(val)){
+                    //    const bool boolVal = valueToBool(val);
+                    //    push(!boolVal);
+                    //}
+                }
                 case OP_HALT:{
                     const Value out = pop();
                     if (!endsWithNewline) std::print("\n");
