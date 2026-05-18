@@ -3,7 +3,6 @@
 #include <AST.hpp>
 #include <iostream>
 #include <vector>
-#include <Opcode.hpp>
 #include <Other.hpp>
 #include <map>
 #include <cmath>
@@ -24,16 +23,12 @@ constexpr std::string_view enum_to_string(E value) {
     return "<unknown>";
 }
 
+
 struct Symbol {
     int index;
     DataType type;
     bool isConst=false;
     Value constValue;
-};
-
-struct Instruction{
-    OpCode op;
-    Value value;
 };
 
 class Compiler{
@@ -129,7 +124,8 @@ class Compiler{
 
             while (current + 1 < errTokens.size() && 
                   ((errTokens[current].type == TOKEN_EQUALS && errTokens[current + 1].type == TOKEN_EQUALS) ||
-                   (errTokens[current].type == TOKEN_NOT_EQUALS))) {
+                   (errTokens[current].type == TOKEN_NOT_EQUALS) || (errTokens[current].type == TOKEN_BIGGER) ||
+                   (errTokens[current].type == TOKEN_SMALLER))) {
                 
                 Token op = errTokens[current];
                 if (op.type == TOKEN_EQUALS) {
@@ -210,10 +206,13 @@ class Compiler{
                     case TOKEN_SLASH: emitByte(OP_DIV); break;
                     case TOKEN_EQUALS: emitByte(OP_EQUALS); break;
                     case TOKEN_NOT_EQUALS: emitByte(OP_NOT_EQUALS); break;
+                    case TOKEN_BIGGER: emitByte(OP_GREATER); break;
+                    case TOKEN_SMALLER: emitByte(OP_LESS); break;
                     default: break;
                 }
 
-                if (binary->op.type == TOKEN_EQUALS || binary->op.type == TOKEN_NOT_EQUALS) {
+                if (binary->op.type == TOKEN_EQUALS || binary->op.type == TOKEN_NOT_EQUALS ||
+                binary->op.type == TOKEN_BIGGER || binary->op.type == TOKEN_SMALLER) {
                     return DataType::INT;
                 }
 
@@ -297,21 +296,25 @@ class Compiler{
                     i++;
                     continue;
                 }
-
-                if (c == '(') { tokens.push_back({TOKEN_LPAREN, "("}); i++; continue; }
-                if (c == ')') { tokens.push_back({TOKEN_RPAREN, ")"}); i++; continue; }
-                if (c == '[') { tokens.push_back({TOKEN_LBRACKET, "["}); i++; continue; }
-                if (c == ']') { tokens.push_back({TOKEN_RBRACKET, "]"}); i++; continue; }
-                if (c == '{') { tokens.push_back({TOKEN_LBRACE, "{"}); i++; continue; }
-                if (c == '}') { tokens.push_back({TOKEN_RBRACE, "}"}); i++; continue; }
-                if (c == ';') { tokens.push_back({TOKEN_SEMICOLON, ";"}); i++; continue; }
-                if (c == '=') { tokens.push_back({TOKEN_EQUALS, "="}); i++; continue; }
-                if (c == ',') { tokens.push_back({TOKEN_COMMA, ","}); i++; continue; }
-                if (c == '-') { tokens.push_back({TOKEN_MINUS, "-"}); i++; continue; }
-                if (c == '*') { tokens.push_back({TOKEN_STAR, "*"}); i++; continue; }
-                if (c == '/') { tokens.push_back({TOKEN_SLASH, "/"}); i++; continue; }
-                if (c == '+') { tokens.push_back({TOKEN_PLUS, "+"}); i++; continue; }
-                if (c == '!') { tokens.push_back({TOKEN_NOT, "!"}); i++; continue; }
+                switch (c){
+                    case '(': { tokens.push_back({TOKEN_LPAREN, "("}); i++; continue; }
+                    case ')': { tokens.push_back({TOKEN_RPAREN, ")"}); i++; continue; }
+                    case '[': { tokens.push_back({TOKEN_LBRACKET, "["}); i++; continue; }
+                    case ']': { tokens.push_back({TOKEN_RBRACKET, "]"}); i++; continue; }
+                    case '{': { tokens.push_back({TOKEN_LBRACE, "{"}); i++; continue; }
+                    case '}': { tokens.push_back({TOKEN_RBRACE, "}"}); i++; continue; }
+                    case ';': { tokens.push_back({TOKEN_SEMICOLON, ";"}); i++; continue; }
+                    case '=': { tokens.push_back({TOKEN_EQUALS, "="}); i++; continue; }
+                    case ',': { tokens.push_back({TOKEN_COMMA, ","}); i++; continue; }
+                    case '-': { tokens.push_back({TOKEN_MINUS, "-"}); i++; continue; }
+                    case '*': { tokens.push_back({TOKEN_STAR, "*"}); i++; continue; }
+                    case '/': { tokens.push_back({TOKEN_SLASH, "/"}); i++; continue; }
+                    case '+': { tokens.push_back({TOKEN_PLUS, "+"}); i++; continue; }
+                    case '!':   { tokens.push_back({TOKEN_NOT, "!"}); i++; continue; }
+                    case '>':   { tokens.push_back({TOKEN_BIGGER, ">"}); i++; continue; }
+                    case '<':   { tokens.push_back({TOKEN_SMALLER, "<"}); i++; continue; }
+                    default: break;
+                }
 
                 i++;
             }
@@ -663,6 +666,7 @@ public:
         const size_t codeSize = code.size();
         pc = 0;
         bool endsWithNewline = false;
+        setErrParam(code, &pc);
         while (pc < codeSize) {
             const Instruction& instr = rawCode[pc];
 
@@ -796,15 +800,15 @@ public:
                     break;
                 }
                 case OP_GREATER:{
-                    const Value val1 = pop();
-                    const Value val2 = pop();
-                    push(val1 > val2 ? 1 : 0);
+                    const Value b = pop();
+                    const Value a = pop();
+                    push(a > b ? 1 : 0);
                     break;
                 }
                 case OP_LESS:{
-                    const Value val1 = pop();
-                    const Value val2 = pop();
-                    push(val1 < val2 ? 1 : 0);
+                    const Value b = pop();
+                    const Value a = pop();
+                    push(a < b ? 1 : 0);
                     break;
                 }
                 case OP_HALT:{

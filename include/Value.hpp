@@ -5,6 +5,7 @@
 #include <variant>
 #include <string>
 #include "Other.hpp"
+#include "Opcode.hpp"
 
 // Small helper
 std::string getPlatform(){
@@ -38,5 +39,10 @@ using Value = std::variant<std::monostate, int, double, std::string, bool, char>
 constexpr bool isNull(const Value& val){
     return std::holds_alternative<std::monostate>(val);
 }
+
+struct Instruction{
+    OpCode op;
+    Value value;
+};
 
 #endif

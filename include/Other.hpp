@@ -148,29 +148,6 @@ struct ReturnSignal {
     Value value;
 };
 
-inline std::vector<Token>* cCode = nullptr;
-inline int* cI = nullptr;
-
-// Sets parameters for errors. (Now set to an empty one)
-//[[deprectated("Parameters are unused and likely wont work.")]]
-inline void setErrParam(std::vector<Token>* code, int* i) {
-    cCode = code;
-    cI = i;
-}
-
-// Throws an error with cool colors
-inline void throwError(std::string msg, int errCode, bool runtimeErr = true, std::string errType = "") {
-    if (cCode && cI) {
-        //std::cerr << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at token line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (token: '" << ISI_Color::b_blue << (*cCode)[*cI].text << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
-    } else {
-        if (runtimeErr)
-            std::cerr << ISI_Color::b_red << "Error: " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
-        else
-            std::cerr << ISI_Color::b_red << errType << ": " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
-    }
-    std::exit(errCode);
-}
-
 std::string typeToString(DataType type) {
         switch (type) {
         case DataType::INT:    return "int";
@@ -192,6 +169,28 @@ std::string stringify(const Value& v) {
         return std::to_string(arg);
         }
     }, v);
+}
+
+inline std::vector<Instruction> cCode = {};
+inline int* cI = nullptr;
+
+// Sets parameters for errors. (Now set to an empty one)
+inline void setErrParam(std::vector<Instruction> code, int* i) {
+    cCode = code;
+    cI = i;
+}
+
+// Throws an error with cool colors
+inline void throwError(std::string msg, int errCode, bool runtimeErr = true, std::string errType = "") {
+    if (!cCode.empty() && cI) {
+        std::cerr << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at OpCode line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (Op: '" << ISI_Color::b_blue << std::to_string(cCode[*cI].op) << " | " << stringify(cCode[*cI].value) << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
+    } else {
+        if (runtimeErr)
+            std::cerr << ISI_Color::b_red << "Error: " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
+        else
+            std::cerr << ISI_Color::b_red << errType << ": " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
+    }
+    std::exit(errCode);
 }
 
 double valueToFloat(const Value& val) {
