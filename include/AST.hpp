@@ -31,13 +31,6 @@ struct BinaryExpr : public Expr {
         : left(std::move(l)), op(std::move(o)), right(std::move(r)) {}
 };
 
-struct CallExpr : public Expr {
-    std::string callee;
-    std::vector<std::unique_ptr<Expr>> arguments;
-    CallExpr(std::string c, std::vector<std::unique_ptr<Expr>> args)
-        : callee(std::move(c)), arguments(std::move(args)) {}
-};
-
 struct AssignExpr : public Expr {
     std::string name;
     std::unique_ptr<Expr> value;
@@ -118,4 +111,31 @@ struct WhileStmt : public Stmt {
     std::vector<std::unique_ptr<Stmt>> body;
     WhileStmt(std::unique_ptr<Expr> cond,
             std::vector<std::unique_ptr<Stmt>> b) : condition(std::move(cond)), body(std::move(b)) {}
+};
+
+class FunctionDeclStmt : public Stmt {
+public:
+    DataType returnType;
+    std::string name;
+    std::vector<Parameter> params;
+    std::vector<Token> body;
+    bool isVoid;
+
+    FunctionDeclStmt(DataType retType, std::string n, std::vector<Parameter> p, std::vector<Token> b, bool v)
+        : returnType(retType), name(std::move(n)), params(std::move(p)), body(std::move(b)), isVoid(v) {}
+};
+
+class CallExpr : public Expr {
+public:
+    std::string callee;
+    std::vector<std::unique_ptr<Expr>> arguments;
+
+    CallExpr(std::string c, std::vector<std::unique_ptr<Expr>> args)
+        : callee(std::move(c)), arguments(std::move(args)) {}
+};
+
+class ReturnStmt : public Stmt {
+public:
+    std::unique_ptr<Expr> value;
+    ReturnStmt(std::unique_ptr<Expr> val) : value(std::move(val)) {}
 };

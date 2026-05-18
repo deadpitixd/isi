@@ -23,10 +23,11 @@ enum OpCode : uint
     OP_CALL, // 13
     OP_LOAD_LOCAL,
     OP_STORE_LOCAL,
+    OP_RETURN,
 
-    OP_NOT, // 16 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
+    OP_NOT, // 17 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
 
-    OP_HALT, // 17
+    OP_HALT, // 18
     // print will be deprecated later, and added in the API
     OP_PRINT
 };

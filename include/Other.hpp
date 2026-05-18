@@ -59,6 +59,7 @@ enum isiTokenType : uint{
     TOKEN_NUMBER,
     TOKEN_STRING,
     TOKEN_IDENTIFIER,
+    TOKEN_RETURN,
 
     // keywords
     TOKEN_VAR,
@@ -142,6 +143,7 @@ struct Function {
 
     bool isNative = false; 
     NativeFunction nativeHandler = nullptr;
+    int address = 0;
 };
 
 struct ReturnSignal {

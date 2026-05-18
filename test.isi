@@ -1,8 +1,5 @@
-int x = 9;
-if (x == 9){
-    print("x is 9\n");
+int add(int a, int b){
+    return a + b;
 }
-else
-{
-    print("x isn't 9\n");
-}
+
+print(add(5,3), "\n");

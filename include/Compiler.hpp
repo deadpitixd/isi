@@ -6,6 +6,7 @@
 #include <Other.hpp>
 #include <map>
 #include <cmath>
+#include <variant>
 
 bool isDigit(const std::string& s) {
     if (s.empty()) return false;
@@ -23,7 +24,6 @@ constexpr std::string_view enum_to_string(E value) {
     return "<unknown>";
 }
 
-
 struct Symbol {
     int index;
     DataType type;
@@ -33,10 +33,16 @@ struct Symbol {
 
 class Compiler{
     private:
+    std::map<std::string, Function> functionTable;
+    bool isCompilingFunction = false;
+    int nextLocalIndex = 0;
+    std::map<std::string, int> localSymbolTable;
+    std::map<std::string, DataType> localTypes;
     std::map<std::string, Symbol> symbolTable;
     int nextAvailableIndex = 1;
     std::vector<Instruction> Code;
     std::vector<DataType> indexTypes;
+    
     void emitByte(uint32_t byte) {
         Code.push_back({static_cast<OpCode>(byte), {}});
     }
@@ -80,6 +86,17 @@ class Compiler{
             }
             
             if (errTokens[current].type == TOKEN_IDENTIFIER) {
+                if (peek(1).type == TOKEN_LPAREN) {
+                    std::string funcName = errTokens[current].lexeme;
+                    current += 2;
+                    std::vector<std::unique_ptr<Expr>> callArgs;
+                    while (!isAtEnd() && errTokens[current].type != TOKEN_RPAREN) {
+                        callArgs.push_back(expression());
+                        if (errTokens[current].type == TOKEN_COMMA) current++;
+                    }
+                    if (!isAtEnd()) current++;
+                    return std::make_unique<CallExpr>(funcName, std::move(callArgs));
+                }
                 return std::make_unique<VariableExpr>(errTokens[current++].lexeme);
             }
 
@@ -168,6 +185,13 @@ class Compiler{
                 }
             }
             else if (auto var = dynamic_cast<VariableExpr*>(node.get())) {
+                if (functionTable.contains(var->name)) {
+                    throwError("Cannot use function '" + var->name + "' as a variable. Did you mean " + var->name + "()?", -1);
+                }
+                if (isCompilingFunction && localSymbolTable.contains(var->name)) {
+                    emitInstruction(OP_LOAD_LOCAL, localSymbolTable[var->name]);
+                    return localTypes[var->name];
+                }
                 if (symbolTable[var->name].isConst){
                     emitInstruction(OP_PUSH, symbolTable[var->name].constValue);
                 }
@@ -178,15 +202,35 @@ class Compiler{
             }
             else if (auto assign = dynamic_cast<AssignExpr*>(node.get())) {
                 DataType rhsType = compileExpression(assign->value);
-                DataType lhsType = symbolTable[assign->name].type;
                 
-                if (!isTypeCompatible(lhsType, rhsType)) {
-                    throwError("Cannot assign " + typeToString(rhsType) + 
-                            " to variable '" + assign->name + "' of type " + typeToString(lhsType), -1, false, "Type Error");
+                if (isCompilingFunction && localSymbolTable.contains(assign->name)) {
+                    emitInstruction(OP_STORE_LOCAL, localSymbolTable[assign->name]);
+                    return rhsType;
                 }
-
+                
+                DataType lhsType = symbolTable[assign->name].type;
+                if (!isTypeCompatible(lhsType, rhsType)) {
+                    throwError("Cannot assign " + std::string(enum_to_string(rhsType)) + 
+                            " to variable '" + assign->name + "' of type " + std::string(enum_to_string(lhsType)), -1, false, "Type Error");
+                }
                 emitInstruction(OP_STORE, getVariableIndex(assign->name, lhsType));
                 return lhsType;
+            }
+            else if (auto call = dynamic_cast<CallExpr*>(node.get())) {
+                if (!functionTable.contains(call->callee)) {
+                    throwError("Undefined function invocation: " + call->callee, -1);
+                }
+                Function func = functionTable[call->callee];
+                
+                if (call->arguments.size() != func.params.size()) {
+                    throwError("Function '" + call->callee + "' expects " + std::to_string(func.params.size()) + " arguments, but got " + std::to_string(call->arguments.size()), -1);
+                }
+
+                for (const auto& arg : call->arguments) {
+                    compileExpression(arg);
+                }
+                emitInstruction(OP_CALL, call->callee);
+                return func.returnType;
             }
             else if (auto binary = dynamic_cast<BinaryExpr*>(node.get())) {
                 DataType leftType = compileExpression(binary->left);
@@ -310,18 +354,16 @@ class Compiler{
                     case '*': { tokens.push_back({TOKEN_STAR, "*"}); i++; continue; }
                     case '/': { tokens.push_back({TOKEN_SLASH, "/"}); i++; continue; }
                     case '+': { tokens.push_back({TOKEN_PLUS, "+"}); i++; continue; }
-                    case '!':   { tokens.push_back({TOKEN_NOT, "!"}); i++; continue; }
-                    case '>':   { tokens.push_back({TOKEN_BIGGER, ">"}); i++; continue; }
-                    case '<':   { tokens.push_back({TOKEN_SMALLER, "<"}); i++; continue; }
+                    case '!': { tokens.push_back({TOKEN_NOT, "!"}); i++; continue; }
+                    case '>': { tokens.push_back({TOKEN_BIGGER, ">"}); i++; continue; }
+                    case '<': { tokens.push_back({TOKEN_SMALLER, "<"}); i++; continue; }
                     default: break;
                 }
 
                 i++;
             }
             for (int i = 0; i < tokens.size(); i++){
-                if (tokens[i].lexeme == "print"){
-                    tokens[i].type = TOKEN_PRINT;
-                }
+                if (tokens[i].lexeme == "print"){ tokens[i].type = TOKEN_PRINT; }
                 if (tokens[i].lexeme == "extern"){ tokens[i].type = TOKEN_EXTERN; }
                 if (tokens[i].lexeme == "import"){ tokens[i].type = TOKEN_IMPORT; }
                 if (tokens[i].lexeme == "lib"){ tokens[i].type = TOKEN_LIB; }
@@ -335,14 +377,17 @@ class Compiler{
                 if (tokens[i].lexeme == "while"){ tokens[i].type = TOKEN_WHILE; }
                 if (tokens[i].lexeme == "exit"){ tokens[i].type = TOKEN_EXIT; }
                 if (tokens[i].lexeme == "const"){ tokens[i].type = TOKEN_CONST; }
+                if (tokens[i].lexeme == "return"){ tokens[i].type = TOKEN_RETURN; }
                 if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
             return tokens;
         }
+
         std::vector<std::unique_ptr<Stmt>> parseExpression(std::vector<Token>& tokens){
             return {};
         }
+
         std::vector<std::unique_ptr<Stmt>> parseBlock(std::vector<Token>& tokens) {
             std::vector<std::unique_ptr<Stmt>> blockStatements;
             
@@ -358,23 +403,42 @@ class Compiler{
                     else if (tokens[current].type == TOKEN_FLOAT) type = DataType::FLOAT;
                     else type = DataType::STRING;
                     
-                    current++;
+                    if (peek(1).type == TOKEN_IDENTIFIER && peek(2).type == TOKEN_LPAREN) {
+                        current++;
+                        std::string funcName = tokens[current].lexeme;
+                        current += 2;
 
-                    if (tokens[current].type == TOKEN_IDENTIFIER) {
-                        std::string name = tokens[current].lexeme;
+                        std::vector<Parameter> parameters;
+                        while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
+                            DataType pType;
+                            if (tokens[current].type == TOKEN_INT) pType = DataType::INT;
+                            else if (tokens[current].type == TOKEN_FLOAT) pType = DataType::FLOAT;
+                            else pType = DataType::STRING;
+                            current++;
+
+                            std::string pName = tokens[current].lexeme;
+                            parameters.push_back({pName, pType});
+                            current++;
+
+                            if (tokens[current].type == TOKEN_COMMA) current++;
+                        }
                         current++;
 
-                        std::unique_ptr<Expr> initializer = nullptr;
+                        if (tokens[current].type != TOKEN_LBRACE) throwError("Expected '{' to start function body", -1);
+                        current++;
 
-                        if (tokens[current].type == TOKEN_EQUALS) {
-                            current++;
-                            initializer = expression(); 
+                        int braceCount = 1;
+                        std::vector<Token> funcBody;
+                        while (!isAtEnd() && braceCount > 0) {
+                            if (tokens[current].type == TOKEN_LBRACE) braceCount++;
+                            if (tokens[current].type == TOKEN_RBRACE) braceCount--;
+                            if (braceCount > 0) {
+                                funcBody.push_back(tokens[current++]);
+                            }
                         }
+                        current++;
 
-                        if (tokens[current].type == TOKEN_SEMICOLON) current++;
-                        
-                        blockStatements.push_back(std::make_unique<VarDeclStmt>(type, name, std::move(initializer), isConstDecl));
-                        isConstDecl = false;
+                        blockStatements.push_back(std::make_unique<FunctionDeclStmt>(type, funcName, parameters, funcBody, false));
                         continue;
                     }
                 }
@@ -399,17 +463,15 @@ class Compiler{
                     current += 2;
 
                     while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
-                        if (tokens[current].type == TOKEN_NUMBER) {
-                            callArgs.push_back(std::make_unique<LiteralExpr>(tokens[current].lexeme));
-                        }
-                        
-                        current++;
+                        callArgs.push_back(expression());
                         if (tokens[current].type == TOKEN_COMMA) current++;
                     }
+                    if (!isAtEnd()) current++;
                     
                     blockStatements.push_back(std::make_unique<ExpressionStmt>(
                         std::make_unique<CallExpr>(funcName, std::move(callArgs))
                     ));
+                    continue;
                 }
                 if (tokens[current].type == TOKEN_EQUALS) {
                     current++;
@@ -469,6 +531,16 @@ class Compiler{
                     blockStatements.push_back(std::make_unique<IfStmt>(std::move(condition), std::move(thenBranch), std::move(elseBranch)));
                     continue;
                 }
+                if (tokens[current].type == TOKEN_RETURN) {
+                    current++;
+                    std::unique_ptr<Expr> retVal = nullptr;
+                    if (current < tokens.size() && tokens[current].type != TOKEN_SEMICOLON) {
+                        retVal = expression();
+                    }
+                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                    blockStatements.push_back(std::make_unique<ReturnStmt>(std::move(retVal)));
+                    continue;
+                }
                 if (tokens[current].type == TOKEN_PRINT) {
                     if (expect(TOKEN_LPAREN)) {
                         std::vector<std::unique_ptr<Expr>> astArgs;
@@ -517,7 +589,7 @@ class Compiler{
                     DataType rhsType = compileExpression(varDecl->initializer);
                     if (!isTypeCompatible(varDecl->type, rhsType)) {
                         throwError("Cannot initialize '" + varDecl->name + "' of type " + 
-                                typeToString(varDecl->type) + " with " + typeToString(rhsType), -1, false, "Type Error");
+                                std::string(enum_to_string(varDecl->type)) + " with " + std::string(enum_to_string(rhsType)), -1, false, "Type Error");
                     }
                 }
 
@@ -544,6 +616,65 @@ class Compiler{
                 if (!newSymbol.isConst) {
                     emitInstruction(OP_STORE, getVariableIndex(varDecl->name, varDecl->type));
                 }
+            }
+            else if (auto funcDecl = dynamic_cast<FunctionDeclStmt*>(node.get())) {
+                Function function;
+                function.name = funcDecl->name;
+                function.returnType = funcDecl->returnType;
+                function.params = funcDecl->params;
+                function.body = funcDecl->body;
+                function.isVoid = funcDecl->isVoid;
+                function.isNative = false;
+                function.nativeHandler = nullptr;
+                
+                int jumpAroundFunc = Code.size();
+                emitInstruction(OP_JMP, 0);
+                
+                function.address = Code.size();
+                functionTable[function.name] = function;
+
+                bool oldIsCompilingFunction = isCompilingFunction;
+                int oldLocalIndex = nextLocalIndex;
+                auto oldLocalSymbols = localSymbolTable;
+                auto oldLocalTypes = localTypes;
+
+                isCompilingFunction = true;
+                localSymbolTable.clear();
+                localTypes.clear();
+                nextLocalIndex = 0;
+
+                for (const auto& param : function.params) {
+                    localSymbolTable[param.name] = nextLocalIndex++;
+                    localTypes[param.name] = param.type;
+                }
+
+                Compiler localCompiler;
+                localCompiler.functionTable = this->functionTable;
+                std::vector<Token> localTokens = function.body;
+                localTokens.push_back({TOKEN_EOF, "\0"});
+                auto bodyAST = localCompiler.makeAST(localTokens);
+                
+                for (const auto& stmt : bodyAST) {
+                    compileSingle(stmt);
+                }
+
+                emitInstruction(OP_PUSH, std::monostate{});
+                emitByte(OP_RETURN);
+
+                Code[jumpAroundFunc].value = (int)(Code.size() - jumpAroundFunc - 1);
+
+                isCompilingFunction = oldIsCompilingFunction;
+                nextLocalIndex = oldLocalIndex;
+                localSymbolTable = oldLocalSymbols;
+                localTypes = oldLocalTypes;
+            }
+            else if (auto retStmt = dynamic_cast<ReturnStmt*>(node.get())) {
+                if (retStmt->value) {
+                    compileExpression(retStmt->value);
+                } else {
+                    emitInstruction(OP_PUSH, std::monostate{});
+                }
+                emitByte(OP_RETURN);
             }
             else if (auto exprStmt = dynamic_cast<ExpressionStmt*>(node.get())) {
                 compileExpression(exprStmt->expression);
@@ -628,13 +759,22 @@ class Compiler{
         const std::vector<DataType>& getIndexTypes() const {
             return indexTypes;
         }
+        const std::map<std::string, Function>& getFunctionTable() const {
+            return functionTable;
+        }
 };
 
 class VirtualMachine {
 private:
+    std::map<std::string, Function> vmFunctions;
     std::vector<Value> globals;
     std::map<std::string, Symbol> symbolTable;
     int nextSlot = 0;
+    struct CallFrame {
+        int returnAddress;
+        int stackBase;
+    };
+    std::vector<CallFrame> frames;
     void handleEscapes(std::string& str) {
         size_t pos = 0;
         while ((pos = str.find("\\n", pos)) != std::string::npos) {
@@ -656,9 +796,13 @@ private:
     }
 
 public: 
+    void setFunctions(const std::map<std::string, Function>& functions) {
+        vmFunctions = functions;
+    }
     int run(const std::vector<Instruction>& code, const std::vector<DataType>& indexTypes) {
         globals.clear();
         stack.clear();
+        frames.clear();
         globals.reserve(512);
         stack.reserve(1024);
         globals.push_back(std::monostate{});
@@ -710,7 +854,7 @@ public:
                         double result = (double)(valueToFloat(a) * valueToFloat(b));
                         push(result);
                     } else {
-                        int result = valueToInt(a) - valueToInt(b);
+                        int result = valueToInt(a) * valueToInt(b);
                         push(result);
                     }
                     break;
@@ -734,7 +878,7 @@ public:
                 }
                 case OP_PRINT: {
                     if (stack.size() < 1){
-                        throwError("Stack Underflow PC: " + pc, -1);
+                        throwError("Stack Underflow PC: " + std::to_string(pc), -1);
                     }
                     Value val = pop();
                     std::string text = valueToString(val);
@@ -825,6 +969,59 @@ public:
                     }
                     break;
                 }
+                case OP_CALL: {
+                    std::string funcName = valueToString(instr.value);
+                    if (!vmFunctions.contains(funcName)) {
+                        throwError("Runtime Error: Invocation targeting missing function routine: " + funcName, -1);
+                    }
+                    Function& func = vmFunctions[funcName];
+                    if (func.isNative) {
+                        int argCount = func.params.size();
+                        std::vector<Value> args(argCount);
+                        for (int i = argCount - 1; i >= 0; --i) {
+                            args[i] = pop();
+                        }
+                        Value result = func.nativeHandler(args);
+                        push(result);
+                    } else {
+                        int targetAddress = func.address; 
+                        CallFrame frame;
+                        frame.returnAddress = pc + 1;
+                        frame.stackBase = stack.size() - func.params.size();
+                        frames.push_back(frame);
+                        pc = targetAddress - 1;
+                    }
+                    break;
+                }
+                case OP_RETURN: {
+                    CallFrame currentFrame = frames.back();
+                    frames.pop_back();
+                    Value retVal = std::monostate{};
+                    if (!stack.empty()) {
+                        retVal = pop();
+                    }
+                    while (stack.size() > currentFrame.stackBase) {
+                        pop();
+                    }
+                    push(retVal);
+                    pc = currentFrame.returnAddress - 1;
+                    break;
+                }
+                case OP_LOAD_LOCAL: {
+                    int slot = valueToInt(instr.value);
+                    int actualIndex = frames.back().stackBase + slot;
+                    push(stack[actualIndex]);
+                    break;
+                }
+                case OP_STORE_LOCAL: {
+                    int slot = valueToInt(instr.value);
+                    int actualIndex = frames.back().stackBase + slot;
+                    if (actualIndex >= stack.size()) {
+                        stack.resize(actualIndex + 1);
+                    }
+                    stack[actualIndex] = pop();
+                    break;
+                }
                 case OP_HALT:{
                     const Value out = pop();
                     if (!endsWithNewline) std::print("\n");
@@ -832,7 +1029,6 @@ public:
                 }
                 default:
                     throwError("Unknown OpCode met during runtime", -1, true, "OpCode Error");
-                    // Throws a garbage value
                     return -INT32_MAX;
             }
             pc++;

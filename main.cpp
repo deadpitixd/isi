@@ -168,6 +168,7 @@ int main(int argc, char* argv[]){
     }
 
     if (flags.contains("--compile")){
+        throwError("--compile parameter doesn't work with this ISI.", -1, false, "Information");
         const std::string nFileName = (fileName + "c").c_str();
         vp_RWwritefile(nFileName.c_str(), "");
         
@@ -190,6 +191,7 @@ int main(int argc, char* argv[]){
         }
     }
 
+    vm.setFunctions(compiler.getFunctionTable());
     int errc = vm.run(compiled, compiler.getIndexTypes());
     if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
     return errc;
