@@ -7,7 +7,7 @@ const replaceMacrosFromJSON = async () => {
     const macroVariables = await response.json();
 
     let html = contentArea.innerHTML;
-    const macroRegex = /\[\[([a-zA-Z0-9_]+)(?::([a-zA-Z0-9_]+))?\]\]/g;
+    const macroRegex = /\[\[([a-zA-Z0-9_-]+)(?::([a-zA-Z0-9_-]+))?\]\]/g;
 
     for (let pass = 0; pass < 2; pass++) {
       html = html.replace(macroRegex, (match, key, subkey) => {

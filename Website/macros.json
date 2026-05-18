@@ -1,8 +1,14 @@
 {
-    "isiVersion":"A1",
+    "isiVersion":"A2",
     "isiVersionCommit":{
-        "A1":"c4688b20224c6ea9c59f873a2292c98945fd03b2"
+        "A1":"c4688b20224c6ea9c59f873a2292c98945fd03b2",
+        "A2":"de1bd6977edfbc82f3d4d0f760a9e4a540501d7e",
+        "A3":"Placeholder"
     },
+    "docVersion":"<br><br>This file was last reviewed for ISI version ",
     "oldFeatureDeprecate":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is deprecated or doesn't exist anymore.</span>",
-    "oldReadd":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is yet to be readded.</span>"
+    "oldReadd":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is yet to be readded.</span>",
+    "legacyFeature":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature currently only exists in Legacy ISI.</span>",
+    "code-begin":"<pre><code class=\"syntax-highlight\" data-lang=\"javascript\">",
+    "code-end":"</code></pre>"
 }

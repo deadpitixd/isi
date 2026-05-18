@@ -1,7 +1,7 @@
 int x = 3;
 
 int scopeTest(){
-    int x = 9;
+    x = 9;
 }
 
 scopeTest();

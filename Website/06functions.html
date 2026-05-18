@@ -1,62 +1,58 @@
-<!-- Use this as a template -->
 <head>
     <title>ISI 06 - Functions</title>
     <link rel="stylesheet" href="style.css">
     <script src="func.js"></script>
-    <body>
+    <script src="syntax.js"></script>
+    <script type="module" src="macros.js"></script>
+</head>
+<body>
         <div class="content-wrapper">
         <div class="iframe-container">
         <iframe src="templates/menubuttons.html"></iframe>
         </div>
         <h1>Functions</h1>
-        <p>I personally think that functions are the most complex thing in ISI.<br>
-            There are two types of functions:<br>
-            - ISI Functions<br>
-            - External Functions (C++)
-            <br></p>
-
-        The easier ones are ISI functions as they are similar to C++.<br>
-        
+        Native ISI functions were added in ISI [[isiVersionCommit:A2]]
+        <br>
+        There will be C++ Functions added in ISI [[isiVersionCommit:A3]]
+        <br>
+        Functions are the most important part of any programming language,<br>
+        as they allow for repeating code in a clean way.
+        <br><br>
+        Creating functions is extremely similar to C++,<br>
+        first you specify the data type, then you name the function,<br>
+        and you add arguments separated by commas.<br>
+        After that, you put code that the function executes in curly brackets.
         <h4>
-            Syntax:
+            Example:
         </h4>
-        <div class="container">
-            <code>
-            <span class="b">int</span>
-            <span class="p">myFunc</span>(<span class="b">int</span>
-            <span class="y">x</span>){
-                <span class="b">return</span> x;
-            }
-            </code>
-        </div>
+<pre><code class="syntax-highlight" data-lang="javascript">int myFunction(int argument1, float argument2, string argument3){
+    print(argument1, argument2, argument3, "\n");
+    return 0;
+}
+</code></pre>
         <br>
-        [[oldReadd]]
-        Here, the program defines a function named '<span class="b">myFunc</span>()' with arguments.<br>
-        The argument (int x) can only be accessed by the function.
-        <br>
-        <br>
-        To use it later, you just use myFunc() with an argument inside.
-        <br>
-        For Example:
-        <br><br>
-        <div class="container">
-            cout(myFunc(5));
-        </div>
-        <br><br>
-        <h1>C++ Functions</h1>
-        These functions require knowledge with C++.<br>
-        To use these, you need to create a c++ file.<br>
-        <span class="b">test.cpp</span> here.<br>
-        <br>
-        You import <span class="b">"includes/Enviroment.hpp"</span> from the source code.
-        <br>
-        <br>
-        finishing later, read math.cpp from stl/ for info.
+        To call a function, you do this:
+<pre><code class="syntax-highlight" data-lang="javascript">myFunction(1, 3.141, "text");
+</code></pre>
+        Functions introduce a new keyword, '<span class="code-keyword">return</span>'.<br>
+        Return simply returns a value int non-void functions.<br>
+[[code-begin]]int add(int a, int b){
+    return a + b;
+}
 
+print(add(2,4),"\n");
+[[code-end]]
+        This code prints 6, because print() takes the returned value of add()<br>
+        as an argument.<br><br>
+
+        <h2>C++ Functions</h2>
+        C++ Functions work as extensions to the language.<br>
+        [[legacyFeature]]<br>
+        [[oldReadd]]<br>
+        [[docVersion]] [[isiVersionCommit:A3]]
         <div class="button-group">
-          <a href="05loops.html"><button class="nav-button">Previous Chapter</button></a>
-          <a href="07include.html"><button class="nav-button">Next Chapter</button></a>
+          <a href="06introduction.html"><button class="nav-button">Previous Chapter</button></a>
+          <a href="02variables.html"><button disabled class="dis-nav-button">Next Chapter</button></a>
         </div>
         </div>
-    </body>
-</head>
+</body>
