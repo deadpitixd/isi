@@ -78,6 +78,7 @@ enum isiTokenType : uint{
     TOKEN_ELSE,
     TOKEN_WHILE,
     TOKEN_CONST,
+    TOKEN_THROW,
 
     // operators
     TOKEN_PLUS,
@@ -195,7 +196,11 @@ inline void setErrParam(std::vector<Instruction> code, int* i) {
 // Throws an error with cool colors
 inline void throwError(std::string msg, int errCode, bool runtimeErr = true, std::string errType = "") {
     if (!cCode.empty() && cI) {
-        std::cerr << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at OpCode line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (Op: '" << ISI_Color::b_blue << std::to_string(cCode[*cI].op) << " | " << stringify(cCode[*cI].value) << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
+        if (errType != ""){
+            std::cerr << errType << ": " << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at OpCode line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (Op: '" << ISI_Color::b_blue << std::to_string(cCode[*cI].op) << " | " << stringify(cCode[*cI].value) << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
+        }
+        else
+            std::cerr << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at OpCode line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (Op: '" << ISI_Color::b_blue << std::to_string(cCode[*cI].op) << " | " << stringify(cCode[*cI].value) << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
     } else {
         if (runtimeErr)
             std::cerr << ISI_Color::b_red << "Error: " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";

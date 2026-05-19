@@ -388,6 +388,7 @@ class Compiler{
                 if (tokens[i].lexeme == "exit"){ tokens[i].type = TOKEN_EXIT; }
                 if (tokens[i].lexeme == "const"){ tokens[i].type = TOKEN_CONST; }
                 if (tokens[i].lexeme == "return"){ tokens[i].type = TOKEN_RETURN; }
+                if (tokens[i].lexeme == "throw"){ tokens[i].type = TOKEN_THROW; }
                 if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
@@ -582,6 +583,20 @@ class Compiler{
                         blockStatements.push_back(std::make_unique<PrintStmt>(std::move(astArgs)));
                     }
                 }
+                if (tokens[current].type == TOKEN_THROW) {
+                    if (expect(TOKEN_LPAREN)) {
+                        std::vector<std::unique_ptr<Expr>> astArgs;
+                        current += 2; 
+
+                        while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
+                            if (astArgs.size() > 2){ throwError("throw() only takes 2 arguments.", -1); }
+                            astArgs.push_back(expression()); 
+                            
+                            if (tokens[current].type == TOKEN_COMMA) current++;
+                        }
+                        blockStatements.push_back(std::make_unique<ThrowStmt>(std::move(astArgs[0]),std::move(astArgs[1])));
+                    }
+                }
                 if (tokens[current].type == TOKEN_EXIT){
                     if (expect(TOKEN_LPAREN)) {
                         std::unique_ptr<Expr> astArg;
@@ -739,6 +754,11 @@ class Compiler{
                     compileExpression(arg); 
                     emitByte(OP_PRINT);
                 }
+            }
+            else if (auto t = dynamic_cast<ThrowStmt*>(node.get())){
+                compileExpression(t->message);
+                compileExpression(t->errorCode);
+                emitByte(OP_THROW);
             }
             else if (auto whileStmt = dynamic_cast<WhileStmt*>(node.get())) {
                 int loopStartHead = Code.size();
@@ -1076,6 +1096,14 @@ public:
                         stack.resize(actualIndex + 1);
                     }
                     stack[actualIndex] = val;
+                    break;
+                }
+                case OP_THROW:{
+                    const int errCode = valueToInt(pop());
+                    const std::string msg = stringify(pop());
+                    throwError(msg, errCode, true, "Uncaught Exception");
+                    
+                    return errCode;
                     break;
                 }
                 case OP_HALT:{

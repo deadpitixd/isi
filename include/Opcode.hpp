@@ -29,5 +29,7 @@ enum OpCode : uint
 
     OP_HALT, // 18
     // print will be deprecated later, and added in the API
-    OP_PRINT
+    OP_PRINT,
+    // Throw works like throw, i'll add catch later
+    OP_THROW
 };

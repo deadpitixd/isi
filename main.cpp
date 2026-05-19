@@ -168,7 +168,7 @@ int main(int argc, char* argv[]){
     }
 
     if (flags.contains("--compile")){
-        throwError("--compile parameter doesn't work with this ISI.", -1, false, "Information");
+        //throwError("--compile parameter doesn't work with this ISI.", -1, false, "Information");
         const std::string nFileName = (fileName + "c").c_str();
         vp_RWwritefile(nFileName.c_str(), "");
         

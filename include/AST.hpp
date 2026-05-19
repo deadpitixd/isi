@@ -57,6 +57,13 @@ struct PrintStmt : public Stmt {
     PrintStmt(std::vector<std::unique_ptr<Expr>> args) : arguments(std::move(args)) {}
 };
 
+struct ThrowStmt : public Stmt {
+    // 2 arguments
+    std::unique_ptr<Expr> message;
+    std::unique_ptr<Expr> errorCode;
+    ThrowStmt(std::unique_ptr<Expr> msg, std::unique_ptr<Expr> errc) : message(std::move(msg)), errorCode(std::move(errc)) {}
+};
+
 struct ExitStmt : public Stmt {
     std::unique_ptr<Expr> argument;
     ExitStmt(std::unique_ptr<Expr> args) : argument(std::move(args)) {}
