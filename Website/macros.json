@@ -8,6 +8,8 @@
     "docVersion":"<br><br>This file was last reviewed for ISI version ",
     "oldFeatureDeprecate":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is deprecated or doesn't exist anymore.</span>",
     "oldReadd":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is yet to be readded.</span>",
+    "toBeAdded":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is yet to be added.</span>",
+    "isInNewCommits":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature is only in the newest commits.</span>",
     "legacyFeature":"<span class=\"r\">Warning:</span> <span class=\"b\">This feature currently only exists in Legacy ISI.</span>",
     "code-begin":"<pre><code class=\"syntax-highlight\" data-lang=\"javascript\">",
     "code-end":"</code></pre>"
