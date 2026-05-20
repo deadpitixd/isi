@@ -1,19 +1,27 @@
-int x = 5;
+int x = 3;
+int __ISI_EXCEPT_TYPE_ERR = 1;
 
-string String(int in){
-    #string concat automatically turns the type into string#
+string String(float in){
     return in + "";
 }
 
+
 int main(){
+    print(String(3.141),"\n");
     if (x > 4){
         return 0;
     }
-    else
-    {
-        x = x + 1;
-        throw("x isn't bigger than 4 (" + String(x-1) + ")",1);
+    else{
+        throw("x is bigger than 4 (" + String(x) + ")", __ISI_EXCEPT_TYPE_ERR, 2);
     }
 }
 
-exit(main());
+const int out = main();
+if (out != 0){
+    print("\nExecution failed with error code '" + x + "'\n");
+}
+else
+{
+    print("\nExecution successful\n");
+}
+exit(out);

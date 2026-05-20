@@ -337,9 +337,9 @@ class Compiler{
                     tokens.push_back({TOKEN_NUMBER, num});
                     continue;
                 }
-                if (isalpha(c)) {
+                if (isalpha(c) || c == '_') {
                     std::string id;
-                    while (isalnum(src[i])) {
+                    while (i < src.size() && isalnum(src[i]) ||  src[i] == '_') {
                         id += src[i++];
                     }
                     tokens.push_back({TOKEN_IDENTIFIER, id});
@@ -589,12 +589,13 @@ class Compiler{
                         current += 2; 
 
                         while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
-                            if (astArgs.size() > 2){ throwError("throw() only takes 2 arguments.", -1); }
+                            if (astArgs.size() > 3){ throwError("throw() only takes 3 arguments.", -1); }
                             astArgs.push_back(expression()); 
                             
                             if (tokens[current].type == TOKEN_COMMA) current++;
                         }
-                        blockStatements.push_back(std::make_unique<ThrowStmt>(std::move(astArgs[0]),std::move(astArgs[1])));
+                        blockStatements.push_back(std::make_unique<ThrowStmt>(std::move(astArgs[0]),std::move(astArgs[1]),std::move(astArgs[2
+                        ])));
                     }
                 }
                 if (tokens[current].type == TOKEN_EXIT){
@@ -620,7 +621,7 @@ class Compiler{
         }
 
         std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens) {
-            if (debug || useDevEnv) std::cout << "AST\n";
+            if (useDevEnv) std::cout << "AST\n";
             errTokens = tokens;
             current = 0; 
             return parseBlock(tokens); 
@@ -757,7 +758,9 @@ class Compiler{
             }
             else if (auto t = dynamic_cast<ThrowStmt*>(node.get())){
                 compileExpression(t->message);
+                compileExpression(t->ident);
                 compileExpression(t->errorCode);
+                
                 emitByte(OP_THROW);
             }
             else if (auto whileStmt = dynamic_cast<WhileStmt*>(node.get())) {
@@ -1100,8 +1103,9 @@ public:
                 }
                 case OP_THROW:{
                     const int errCode = valueToInt(pop());
+                    const int iden = valueToInt(pop());
                     const std::string msg = stringify(pop());
-                    throwError(msg, errCode, true, "Uncaught Exception");
+                    throwError(msg, errCode, true, "Uncaught Exception of id " + std::to_string(iden));
                     
                     return errCode;
                     break;

@@ -58,10 +58,11 @@ struct PrintStmt : public Stmt {
 };
 
 struct ThrowStmt : public Stmt {
-    // 2 arguments
+    // 3 arguments
     std::unique_ptr<Expr> message;
+    std::unique_ptr<Expr> ident;
     std::unique_ptr<Expr> errorCode;
-    ThrowStmt(std::unique_ptr<Expr> msg, std::unique_ptr<Expr> errc) : message(std::move(msg)), errorCode(std::move(errc)) {}
+    ThrowStmt(std::unique_ptr<Expr> msg, std::unique_ptr<Expr> id, std::unique_ptr<Expr> errc) : message(std::move(msg)), ident(std::move(id)) , errorCode(std::move(errc)) {}
 };
 
 struct ExitStmt : public Stmt {
