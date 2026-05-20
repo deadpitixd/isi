@@ -19,16 +19,19 @@
         That's why the '<span class="code-keyword">throw</span>' function WILL BE introduced in ISI [[isiVersionCommit:A3]]
         <br>
         Using the throw function is simple, you just do this:
-<pre><code class="syntax-highlight" data-lang="javascript">int x = 8;
+<pre><code class="syntax-highlight" data-lang="javascript">int xVariableError = 2;
+int x = 8;
 if (x < 128){
-    throw("Variable x is smaller than 128", -1);
+    throw("Variable x is smaller than 128", xVariableError, -1);
 }
 </code></pre>
         <br>
-        The throw function takes two arguments, but only the first one is required.<br>
+        The throw function takes three arguments, but only the first one is required.<br>
         The first argument is a <span class="code-keyword">string</span>, which is the message that gets printed<br>
         if the error won't be caught.<br>
-        The second argument is an <span class="code-keyword">int</span>, which is the error code that gets returned.<br>
+        The second argument is an <span class="code-keyword">int</span>, which should be a variable to be catched easily,<br>
+        it serves the purpose of a throw identificator.<br>
+        The third argument is an <span class="code-keyword">int</span>, which is the error code that gets returned.<br>
         <br>
         [[docVersion]] [[isiVersionCommit:A2]]
         <div class="button-group">
