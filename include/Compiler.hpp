@@ -636,6 +636,10 @@ class Compiler{
                                 std::string(typeToString(varDecl->type)) + " with " + std::string(typeToString(rhsType)), -1, false, "Type Error");
                     }
                 }
+                else
+                {
+                    emitInstruction(OP_PUSH, defaultValueOfType(varDecl->type));
+                }
 
                 if (isCompilingFunction) {
                     localSymbolTable[varDecl->name] = nextLocalIndex++;
@@ -970,6 +974,9 @@ public:
                 }
                 case OP_STORE: {
                     int index = (int)valueToInt(instr.value);
+                    if (stack.empty()){
+                        throwError("The value cannot be null\n",-1,true,"Variable Error");
+                    }
                     Value val = pop();
                     if (index == 0){ throwError("Cannot store on index 0", -1, true, "Forbidden Access"); }
                     if (index < indexTypes.size()) {

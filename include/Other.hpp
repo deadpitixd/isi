@@ -314,3 +314,24 @@ bool compatibleTypes(DataType a, DataType b){
     }
     return true;
 }
+
+Value defaultValueOfType(DataType type){
+    switch(type){
+        case DataType::INT:{
+            return 0;
+        };
+        case DataType::STRING:{
+            return "";
+        };
+        case DataType::FLOAT:{
+            return 0.0;
+        };
+        case DataType::BOOL:{
+            return false;
+        };
+        case DataType::CHAR:{
+            return ' ';
+        };
+    }
+    return std::monostate{};
+}
