@@ -71,6 +71,7 @@ int main(int argc, char* argv[]){
 
     VirtualMachine vm;
 
+    // upgrade later
     if (compiledBin) {
         char *buf = static_cast<char*>(malloc(vp_getFileSize(fileName.c_str()) + 1));
         size_t size = vp_readfileS(buf, fileName.c_str(), vp_getFileSize(fileName.c_str()));

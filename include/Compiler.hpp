@@ -408,7 +408,7 @@ class Compiler{
                     isConstDecl=true;
                     current++;
                 }
-                if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T) {
+                if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T || tokens[current].type == TOKEN_CHAR) {
                     DataType type;
                     if (tokens[current].type == TOKEN_INT) type = DataType::INT;
                     else if (tokens[current].type == TOKEN_FLOAT) type = DataType::FLOAT;
@@ -430,6 +430,7 @@ class Compiler{
                             std::string pName = tokens[current].lexeme;
                             parameters.push_back({pName, pType});
                             current++;
+
 
                             if (tokens[current].type == TOKEN_COMMA) current++;
                         }

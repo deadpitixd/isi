@@ -1,3 +1,17 @@
-#this variable is uninitialized#
-int x;
-print(x,"\n");
+int x = 3;
+int __ISI_VARIABLE_ERROR = 1;
+
+string String(float in){
+    #string concat turns floats int strings#
+    return in + "";
+}
+
+int main(){
+    if (x > 4){
+        return 0;
+    }
+    else{
+        throw("x is smaller than 4 (" + String(x) + ")", __ISI_VARIABLE_ERROR, 0-1);
+    }
+}
+exit(main());
