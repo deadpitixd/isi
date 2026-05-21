@@ -1,5 +1,8 @@
 lib math = loadLibrary("math");
 extern(math) float sqrt(float);
+lib std = loadLibrary("standard");
+extern(std) string input();
 
+string in = input();
 float x = 4;
 print(sqrt(x), "\n");

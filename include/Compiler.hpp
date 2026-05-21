@@ -781,6 +781,9 @@ class Compiler{
                     auto argToFloat = [&](const Value& v) {
                         return valueToFloat(v);
                     };
+                    auto argToString = [&](const Value& v) {
+                        return valueToString(v);
+                    };
 
                     if (params.size() == 0) {
                         if (returnType == DataType::VOID) return std::monostate{};
@@ -792,6 +795,10 @@ class Compiler{
                             using Fn = double(*)();
                             return reinterpret_cast<Fn>(sym)();
                         }
+                        if (returnType == DataType::STRING) {
+                            using Fn = std::string(*)();
+                            return reinterpret_cast<Fn>(sym)();
+                        }
                         if (returnType == DataType::BOOL) {
                             using Fn = bool(*)();
                             return reinterpret_cast<Fn>(sym)();
@@ -799,6 +806,24 @@ class Compiler{
                     }
 
                     if (params.size() == 1) {
+                        if (params[0].type == DataType::STRING) {
+                            if (returnType == DataType::STRING) {
+                                auto fn = reinterpret_cast<std::string(*)(const std::string&)>(sym);
+                                return fn(argToString(args[0]));
+                            }
+                            if (returnType == DataType::INT) {
+                                auto fn = reinterpret_cast<int(*)(const std::string&)>(sym);
+                                return fn(argToString(args[0]));
+                            }
+                            if (returnType == DataType::FLOAT) {
+                                auto fn = reinterpret_cast<double(*)(const std::string&)>(sym);
+                                return fn(argToString(args[0]));
+                            }
+                            if (returnType == DataType::BOOL) {
+                                auto fn = reinterpret_cast<bool(*)(const std::string&)>(sym);
+                                return fn(argToString(args[0]));
+                            }
+                        }
                         if (params[0].type == DataType::FLOAT) {
                             auto fn = reinterpret_cast<double(*)(double)>(sym);
                             double result = fn(argToFloat(args[0]));
@@ -814,8 +839,7 @@ class Compiler{
                             if (returnType == DataType::BOOL) return result != 0;
                         }
                     }
-
-                    if (params.size() == 2) {
+if (params.size() == 2) {
                         if (params[0].type == DataType::FLOAT && params[1].type == DataType::FLOAT) {
                             auto fn = reinterpret_cast<double(*)(double, double)>(sym);
                             double result = fn(argToFloat(args[0]), argToFloat(args[1]));
