@@ -23,6 +23,7 @@ class Compiler{
     int nextLocalIndex = 0;
     std::map<std::string, int> localSymbolTable;
     std::map<std::string, DataType> localTypes;
+    std::map<std::string, std::string> libraryTable;
     std::map<std::string, Symbol> symbolTable;
     int nextAvailableIndex = 1;
     std::vector<Instruction> Code;
@@ -56,12 +57,6 @@ class Compiler{
     }
     const Token& previous() {
         return errTokens[current - 1];
-    }
-
-    bool isTypeCompatible(DataType expected, DataType given) {
-        if (expected == given) return true;
-        if (expected == DataType::FLOAT && given == DataType::INT) return true;
-        return false;
     }
 
     public:
@@ -225,7 +220,7 @@ class Compiler{
                 Function func = functionTable[call->callee];
                 
                 if (call->arguments.size() != func.params.size()) {
-                    throwError("Function '" + call->callee + "' expects " + std::to_string(func.params.size()) + " arguments, but got " + std::to_string(call->arguments.size()), -1);
+                    throwError("Function '" + call->callee + "' expects " + std::to_string(func.params.size()) + " argument/s, but got " + std::to_string(call->arguments.size()), -1);
                 }
 
                 for (size_t i = 0; i < call->arguments.size(); i++) {
@@ -324,6 +319,21 @@ class Compiler{
                     continue;
                 }
 
+                if (c == '-' && i + 1 < src.size() && isdigit(src[i+1])) {
+                    std::string num;
+                    num += src[i++];
+                    bool hasDecimal = false;
+                    while (i < src.size() && (isdigit(src[i]) || src[i] == '.')) {
+                        if (src[i] == '.') {
+                            if (hasDecimal) break;
+                            hasDecimal = true;
+                        }
+                        num += src[i++];
+                    }
+                    tokens.push_back({TOKEN_NUMBER, num});
+                    continue;
+                }
+
                 if (isdigit(c)) {
                     std::string num;
                     bool hasDecimal = false;
@@ -407,6 +417,78 @@ class Compiler{
                 if (tokens[current].type == TOKEN_CONST){
                     isConstDecl=true;
                     current++;
+                }
+                if (tokens[current].type == TOKEN_LIB) {
+                    current++;
+                    if (tokens[current].type != TOKEN_IDENTIFIER) throwError("Expected library handle after 'lib'", -1);
+                    std::string libHandle = tokens[current].lexeme;
+                    current++;
+                    if (tokens[current].type != TOKEN_EQUALS) throwError("Expected '=' after library handle", -1);
+                    current++;
+                    if (tokens[current].type != TOKEN_IDENTIFIER || tokens[current].lexeme != "loadLibrary") {
+                        throwError("Expected loadLibrary() after 'lib <handle> ='",-1);
+                    }
+                    current++;
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after loadLibrary", -1);
+                    current++;
+                    if (tokens[current].type != TOKEN_STRING) throwError("Expected string library name inside loadLibrary()", -1);
+                    std::string libName = tokens[current].lexeme;
+                    current++;
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after loadLibrary argument", -1);
+                    current++;
+                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                    blockStatements.push_back(std::make_unique<LibStmt>(libHandle, libName));
+                    continue;
+                }
+                if (tokens[current].type == TOKEN_EXTERN) {
+                    current++;
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after extern", -1);
+                    current++;
+                    if (tokens[current].type != TOKEN_IDENTIFIER && tokens[current].type != TOKEN_STRING) throwError("Expected library handle or string inside extern()", -1);
+                    std::string libHandle = tokens[current].lexeme;
+                    current++;
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after extern library handle", -1);
+                    current++;
+                    if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR && tokens[current].type != TOKEN_BOOL) {
+                        throwError("Expected return type after extern()", -1);
+                    }
+                    DataType returnType;
+                    if (tokens[current].type == TOKEN_INT) returnType = DataType::INT;
+                    else if (tokens[current].type == TOKEN_FLOAT) returnType = DataType::FLOAT;
+                    else if (tokens[current].type == TOKEN_BOOL) returnType = DataType::BOOL;
+                    else if (tokens[current].type == TOKEN_CHAR) returnType = DataType::CHAR;
+                    else returnType = DataType::STRING;
+                    current++;
+                    if (tokens[current].type != TOKEN_IDENTIFIER) throwError("Expected extern function name", -1);
+                    std::string funcName = tokens[current].lexeme;
+                    current++;
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after extern function name", -1);
+                    current++;
+                    std::vector<Param> params;
+                    while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
+                        if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR && tokens[current].type != TOKEN_BOOL) {
+                            throwError("Expected parameter type in extern declaration", -1);
+                        }
+                        DataType pType;
+                        if (tokens[current].type == TOKEN_INT) pType = DataType::INT;
+                        else if (tokens[current].type == TOKEN_FLOAT) pType = DataType::FLOAT;
+                        else if (tokens[current].type == TOKEN_BOOL) pType = DataType::BOOL;
+                        else if (tokens[current].type == TOKEN_CHAR) pType = DataType::CHAR;
+                        else pType = DataType::STRING;
+                        current++;
+                        std::string paramName = "arg" + std::to_string(params.size());
+                        if (tokens[current].type == TOKEN_IDENTIFIER) {
+                            paramName = tokens[current].lexeme;
+                            current++;
+                        }
+                        params.push_back({pType, paramName});
+                        if (tokens[current].type == TOKEN_COMMA) current++;
+                    }
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' at end of extern parameter list", -1);
+                    current++;
+                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                    blockStatements.push_back(std::make_unique<ExternStmt>(libHandle, funcName, returnType, params));
+                    continue;
                 }
                 if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T || tokens[current].type == TOKEN_CHAR) {
                     DataType type;
@@ -672,6 +754,92 @@ class Compiler{
                     }
                 }
             }
+            else if (auto libDecl = dynamic_cast<LibStmt*>(node.get())) {
+                registerNativeLibrary(libDecl->handle, libDecl->libPath);
+            }
+            else if (auto externDecl = dynamic_cast<ExternStmt*>(node.get())) {
+                Function function;
+                function.name = externDecl->funcName;
+                function.returnType = externDecl->returnType;
+                function.isVoid = (externDecl->returnType == DataType::VOID);
+                function.isNative = true;
+                function.nativeHandler = [libHandle = externDecl->libHandle,
+                                          symbol = externDecl->funcName,
+                                          params = externDecl->params,
+                                          returnType = externDecl->returnType](std::vector<Value> args) -> Value {
+                    if (args.size() != params.size()) {
+                        throwError("External function '" + symbol + "' called with wrong argument count", -1);
+                    }
+                    void* sym = resolveNativeSymbol(libHandle, symbol);
+                    if (!sym) {
+                        throwError("Failed to resolve symbol '" + symbol + "'", -1);
+                    }
+
+                    auto argToInt = [&](const Value& v) {
+                        return static_cast<int>(valueToInt(v));
+                    };
+                    auto argToFloat = [&](const Value& v) {
+                        return valueToFloat(v);
+                    };
+
+                    if (params.size() == 0) {
+                        if (returnType == DataType::VOID) return std::monostate{};
+                        if (returnType == DataType::INT) {
+                            using Fn = int(*)();
+                            return reinterpret_cast<Fn>(sym)();
+                        }
+                        if (returnType == DataType::FLOAT) {
+                            using Fn = double(*)();
+                            return reinterpret_cast<Fn>(sym)();
+                        }
+                        if (returnType == DataType::BOOL) {
+                            using Fn = bool(*)();
+                            return reinterpret_cast<Fn>(sym)();
+                        }
+                    }
+
+                    if (params.size() == 1) {
+                        if (params[0].type == DataType::FLOAT) {
+                            auto fn = reinterpret_cast<double(*)(double)>(sym);
+                            double result = fn(argToFloat(args[0]));
+                            if (returnType == DataType::INT) return static_cast<int>(result);
+                            if (returnType == DataType::FLOAT) return result;
+                            if (returnType == DataType::BOOL) return result != 0.0;
+                        }
+                        if (params[0].type == DataType::INT) {
+                            auto fn = reinterpret_cast<int(*)(int)>(sym);
+                            int result = fn(argToInt(args[0]));
+                            if (returnType == DataType::INT) return result;
+                            if (returnType == DataType::FLOAT) return static_cast<double>(result);
+                            if (returnType == DataType::BOOL) return result != 0;
+                        }
+                    }
+
+                    if (params.size() == 2) {
+                        if (params[0].type == DataType::FLOAT && params[1].type == DataType::FLOAT) {
+                            auto fn = reinterpret_cast<double(*)(double, double)>(sym);
+                            double result = fn(argToFloat(args[0]), argToFloat(args[1]));
+                            if (returnType == DataType::INT) return static_cast<int>(result);
+                            if (returnType == DataType::FLOAT) return result;
+                            if (returnType == DataType::BOOL) return result != 0.0;
+                        }
+                        if (params[0].type == DataType::INT && params[1].type == DataType::INT) {
+                            auto fn = reinterpret_cast<int(*)(int, int)>(sym);
+                            int result = fn(argToInt(args[0]), argToInt(args[1]));
+                            if (returnType == DataType::INT) return result;
+                            if (returnType == DataType::FLOAT) return static_cast<double>(result);
+                            if (returnType == DataType::BOOL) return result != 0;
+                        }
+                    }
+
+                    throwError("External function signature not supported for '" + symbol + "'", -1);
+                    return std::monostate{};
+                };
+                for (const auto& param : externDecl->params) {
+                    function.params.push_back({param.name, param.type});
+                }
+                functionTable[function.name] = function;
+            }
             else if (auto funcDecl = dynamic_cast<FunctionDeclStmt*>(node.get())) {
                 Function function;
                 function.name = funcDecl->name;
@@ -721,6 +889,13 @@ class Compiler{
 
                 emitInstruction(OP_PUSH, std::monostate{});
                 emitByte(OP_RETURN);
+
+                std::vector<DataType> functionLocalTypeList(nextLocalIndex);
+                for (const auto& [name, index] : localSymbolTable) {
+                    functionLocalTypeList[index] = localTypes[name];
+                }
+                function.localTypes = std::move(functionLocalTypeList);
+                functionTable[function.name] = function;
 
                 Code[jumpAroundFunc].value = (int)(Code.size() - jumpAroundFunc - 1);
 
@@ -856,6 +1031,7 @@ private:
     struct CallFrame {
         int returnAddress;
         int stackBase;
+        std::vector<DataType> localTypes;
     };
     std::vector<CallFrame> frames;
     void handleEscapes(std::string& str) {
@@ -919,6 +1095,17 @@ public:
                     break;
                 }
                 case OP_SUB:{
+                    if (stack.size()==1){
+                        const Value val = pop();
+                        if (std::holds_alternative<double>(val)){
+                            push(-valueToFloat(val));
+                        }
+                        else
+                        {
+                            push((int)-valueToInt(val));
+                        }
+                        break;
+                    }
                     Value b = pop();
                     Value a = pop();
                     if (std::holds_alternative<double>(a) || std::holds_alternative<double>(b)) {
@@ -981,12 +1168,11 @@ public:
                     Value val = pop();
                     if (index == 0){ throwError("Cannot store on index 0", -1, true, "Forbidden Access"); }
                     if (index < indexTypes.size()) {
-                        if (!compatibleTypes(indexTypes[index], valueToType(val)))
+                        if (!isTypeCompatible(indexTypes[index], valueToType(val)))
                             throwError("Cannot store " + std::string(typeToString(indexTypes[index])) + " value into " + std::string(typeToString(valueToType(val))) + " variable", -1, true);
                     }
-
                     if (index >= globals.size()) globals.resize(index + 1);
-                    globals[index] = val;
+                    globals[index] = convertValSafely(val, indexTypes[index], valueToType(val));
                 
                     break;
                 }
@@ -1073,6 +1259,7 @@ public:
                         CallFrame frame;
                         frame.returnAddress = pc + 1;
                         frame.stackBase = stack.size() - func.params.size();
+                        frame.localTypes = func.localTypes;
                         frames.push_back(frame);
                         pc = targetAddress - 1;
                     }
@@ -1101,8 +1288,17 @@ public:
                 }
                 case OP_STORE_LOCAL: {
                     int slot = valueToInt(instr.value);
-                    int actualIndex = frames.back().stackBase + slot;
                     Value val = pop();
+                    CallFrame& frame = frames.back();
+                    if (slot < (int)frame.localTypes.size()) {
+                        DataType expected = frame.localTypes[slot];
+                        DataType given = valueToType(val);
+                        if (!isTypeCompatible(expected, given)) {
+                            throwError("Cannot store " + std::string(typeToString(expected)) + " value into " + std::string(typeToString(given)) + " variable", -1, true);
+                        }
+                        val = convertValSafely(val, expected, given);
+                    }
+                    int actualIndex = frame.stackBase + slot;
                     if (actualIndex >= stack.size()) {
                         stack.resize(actualIndex + 1);
                     }

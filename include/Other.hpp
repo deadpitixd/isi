@@ -4,6 +4,11 @@
 #include <functional>
 #include <string>
 #include <map>
+#if defined(__linux__) || defined(__APPLE__)
+#include <dlfcn.h>
+#elif defined(_WIN32)
+#include <windows.h>
+#endif
 // (Value is from Legacy ISI)
 #include "Value.hpp"
 
@@ -134,6 +139,8 @@ using NativeFunction = std::function<Value(std::vector<Value>)>;
 
 using NativeHandler = std::function<Value(std::vector<Value>)>;
 
+void throwError(std::string msg, int errCode, bool runtimeErr = true, std::string errType = "");
+
 inline std::map<std::string, NativeHandler>& getGlobalNativeRegistry() {
     static std::map<std::string, NativeHandler> registry;
     return registry;
@@ -145,11 +152,116 @@ struct NativeRegister {
     }
 };
 
+inline std::map<std::string, std::string> g_nativeLibraryPaths;
+inline std::map<std::string, void*> g_nativeLibraryHandles;
+
+std::string getPlatformSharedLibraryName(const std::string& baseName) {
+#ifdef _WIN32
+    return baseName + ".dll";
+#elif defined(__APPLE__)
+    return baseName + ".dylib";
+#elif defined(__linux__)
+    return baseName + ".so";
+#else
+    return baseName;
+#endif
+}
+
+void registerNativeLibrary(const std::string& handle, const std::string& libraryName) {
+    g_nativeLibraryPaths[handle] = libraryName;
+}
+
+void setNativeLibraryPaths(const std::map<std::string, std::string>& table) {
+    g_nativeLibraryPaths = table;
+}
+
+void* loadNativeLibrary(const std::string& handle) {
+    auto existing = g_nativeLibraryHandles.find(handle);
+    if (existing != g_nativeLibraryHandles.end()) {
+        return existing->second;
+    }
+
+    std::string libraryName;
+    auto it = g_nativeLibraryPaths.find(handle);
+    if (it == g_nativeLibraryPaths.end()) {
+        libraryName = handle;
+    } else {
+        libraryName = it->second;
+    }
+
+    std::vector<std::string> candidates;
+    if (libraryName.find('.') != std::string::npos || libraryName.find('/') != std::string::npos) {
+        if (libraryName.find('/') == std::string::npos) {
+            candidates.push_back(std::string("./") + libraryName);
+        }
+        candidates.push_back(libraryName);
+    } else {
+        candidates.push_back(libraryName);
+        std::string platformName = getPlatformSharedLibraryName(libraryName);
+        if (platformName != libraryName) {
+            candidates.push_back(std::string("./") + platformName);
+            candidates.push_back(platformName);
+        }
+        if (libraryName.rfind("lib", 0) != 0) {
+            std::string libCandidate = std::string("lib") + libraryName + ".so";
+            candidates.push_back(std::string("./") + libCandidate);
+            candidates.push_back(libCandidate);
+        }
+    }
+
+#if defined(_WIN32)
+    HMODULE lib = nullptr;
+    for (const auto& candidate : candidates) {
+        lib = LoadLibraryA(candidate.c_str());
+        if (lib) break;
+    }
+    if (!lib) {
+        throwError("Failed to load library: " + libraryName, -1);
+    }
+    g_nativeLibraryHandles[handle] = (void*)lib;
+    return (void*)lib;
+#else
+    void* lib = nullptr;
+    for (const auto& candidate : candidates) {
+        lib = dlopen(candidate.c_str(), RTLD_LAZY);
+        if (lib) break;
+        if (!lib && candidate.size() >= 3 && candidate.substr(candidate.size() - 3) == ".so") {
+            std::string fallbackName = candidate + ".6";
+            lib = dlopen(fallbackName.c_str(), RTLD_LAZY);
+            if (lib) break;
+        }
+    }
+    if (!lib) {
+        throwError("Failed to load library: " + libraryName + " - " + std::string(dlerror()), -1);
+    }
+    g_nativeLibraryHandles[handle] = lib;
+    return lib;
+#endif
+}
+
+void* resolveNativeSymbol(const std::string& handle, const std::string& symbol) {
+    void* lib = loadNativeLibrary(handle);
+#if defined(_WIN32)
+    void* sym = (void*)GetProcAddress((HMODULE)lib, symbol.c_str());
+    if (!sym) {
+        throwError("Failed to resolve symbol: " + symbol + " in library handle: " + handle, -1);
+    }
+    return sym;
+#else
+    void* sym = dlsym(lib, symbol.c_str());
+    if (!sym) {
+        throwError("Failed to resolve symbol: " + symbol + " in library handle: " + handle + " - " + std::string(dlerror()), -1);
+    }
+    return sym;
+#endif
+}
+
 struct Function {
     std::string name;
     DataType returnType;
     std::vector<Parameter> params;
     std::vector<Token> body;
+    std::vector<DataType> localTypes;
     bool isVoid = false;
 
     bool isNative = false; 
@@ -194,7 +306,7 @@ inline void setErrParam(std::vector<Instruction> code, int* i) {
 }
 
 // Throws an error with cool colors
-inline void throwError(std::string msg, int errCode, bool runtimeErr = true, std::string errType = "") {
+inline void throwError(std::string msg, int errCode, bool runtimeErr, std::string errType) {
     if (!cCode.empty() && cI) {
         if (errType != ""){
             std::cerr << errType << ": " << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at OpCode line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (Op: '" << ISI_Color::b_blue << std::to_string(cCode[*cI].op) << " | " << stringify(cCode[*cI].value) << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
@@ -309,10 +421,27 @@ inline bool isNumeric(const Value& val) {
 
 bool compatibleTypes(DataType a, DataType b){
     if (a == b) return true;
-    if (a == DataType::INT && b == DataType::FLOAT || b == DataType::STRING) {
-        return false;
-    }
-    return true;
+    if (a == DataType::INT && b == DataType::FLOAT || b == DataType::STRING) { return false; }
+    if (a == DataType::STRING && b == DataType::FLOAT || b == DataType::INT) { return true; }
+    return false;
+}
+
+bool isTypeCompatible(DataType expected, DataType given) {
+    if (expected == given) return true;
+    if (expected == DataType::FLOAT && given == DataType::INT) return true;
+    if (expected == DataType::STRING && given == DataType::INT || given == DataType::FLOAT) return true;
+    if (expected == DataType::INT && given == DataType::FLOAT) return true;
+    return false;
+}
+
+// Does what it says
+Value convertValSafely(const Value& val, const DataType& expected, const DataType& given){
+    if (expected == given){ return val; }
+    if (!isTypeCompatible(expected,given)) { return std::monostate{};}
+    if (expected==DataType::INT && given == DataType::FLOAT) return (int)valueToFloat(val);
+    if (expected==DataType::FLOAT && given == DataType::INT) return valueToFloat(val);
+    if (expected==DataType::STRING) return valueToString(val);
+    return std::monostate{};
 }
 
 Value defaultValueOfType(DataType type){
