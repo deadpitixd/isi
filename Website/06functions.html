@@ -13,7 +13,7 @@
         <h1>Functions</h1>
         Native ISI functions were added in ISI [[isiVersionCommit:A2]]
         <br>
-        There will be C++ Functions added in ISI [[isiVersionCommit:A4]]
+        External C++ functions were added in ISI [[isiVersionCommit:A4]]
         <br>
         Functions are the most important part of any programming language,<br>
         as they allow for repeating code in a clean way.
@@ -47,9 +47,31 @@ print(add(2,4),"\n");
 
         <h2>C++ Functions</h2>
         C++ Functions work as extensions to the language.<br>
-        [[legacyFeature]]<br>
-        [[oldReadd]]<br>
-        [[docVersion]] [[isiVersionCommit:A3]]
+        <br>
+        To write and extension, you start the C++ file like this:
+[[code-begin]]#include "other.hpp"
+other.hpp is in std/ folder in ISI source code,
+it has all neccesary includes.
+[[code-end]]
+        Then, you write all functions in 'extern "C"{}'<br>
+        All functions must have 'std::vector< Value > args' in them to work correctly.<br>
+        Example:
+[[code-begin]]#include "other.hpp"
+using std::string;
+
+extern "C" {
+    Value input(const std::vector<Value>& args) {
+        string out;
+        std::cin >> out;
+        return out;
+    }
+}
+[[code-end]]
+        To use these functions in isi, you use the extern() function:
+[[code-begin]]lib x = loadLibrary("library name");
+extern(x) string 'function name in C++'();
+[[code-end]]
+        [[docVersion]] [[isiVersionCommit:A4]]
         <div class="button-group">
           <a href="05loops.html"><button class="nav-button">Previous Chapter</button></a>
           <a href="07errorHandling.html"><button class="nav-button">Next Chapter</button></a>
