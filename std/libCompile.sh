@@ -1,0 +1,1 @@
+g++ -std=c++26 -freflection -shared -fPIC  $1.cpp -o $1.so

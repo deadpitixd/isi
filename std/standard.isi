@@ -1,0 +1,65 @@
+const int NULL = -2147483647;
+int isNull(float in){
+    if (in == NULL){
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+string String(float in){
+    if (isNull(in)){
+        return "";
+    }
+    #string concat turns floats int strings#
+    return in + "";
+}
+#standard library#
+lib std = loadLibrary("standard");
+#basic string conversion#
+extern(std) int stringToInt(string);
+extern(std) int stringToFloat(string);
+#input#
+extern(std) string input();
+
+#
+* letter n of string str,
+* THIS WILL BE REPLACED BY SQUARE BRACKETS
+* WHEN chars WILL BE ADDED
+#
+extern(std) string let(int, string);
+#extern(std) int charToAscii(string);#
+
+#prevents data loss when converting float->int#
+const int floatToInt(float in){
+    #trims the float#
+    int i = in;
+    #gets the floating point#
+    float fpoint = in - i;
+    if (i == in){
+        return i;
+    }
+    if (fpoint > 0.5)
+    {
+        return i + 1;
+    }
+    else {if (fpoint == 0.5)
+    {
+        return i + 1;
+    }
+    }
+    else
+    {
+        return i;
+    }
+
+}
+
+int test(){
+    const int c = 0;
+    const string str = "Hello World!";
+    print(let(c, str),"\n");
+    return 0;
+}
+exit(test());

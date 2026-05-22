@@ -4,6 +4,7 @@
 #include <functional>
 #include <string>
 #include <map>
+#include <meta>
 #if defined(__linux__) || defined(__APPLE__)
 #include <dlfcn.h>
 #elif defined(_WIN32)

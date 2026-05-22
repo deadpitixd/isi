@@ -763,100 +763,28 @@ class Compiler{
                 function.returnType = externDecl->returnType;
                 function.isVoid = (externDecl->returnType == DataType::VOID);
                 function.isNative = true;
+                
                 function.nativeHandler = [libHandle = externDecl->libHandle,
-                                          symbol = externDecl->funcName,
-                                          params = externDecl->params,
-                                          returnType = externDecl->returnType](std::vector<Value> args) -> Value {
-                    if (args.size() != params.size()) {
-                        throwError("External function '" + symbol + "' called with wrong argument count", -1);
-                    }
+                                          symbol = externDecl->funcName](std::vector<Value> args) -> Value {
                     void* sym = resolveNativeSymbol(libHandle, symbol);
                     if (!sym) {
                         throwError("Failed to resolve symbol '" + symbol + "'", -1);
                     }
 
-                    auto argToInt = [&](const Value& v) {
-                        return static_cast<int>(valueToInt(v));
-                    };
-                    auto argToFloat = [&](const Value& v) {
-                        return valueToFloat(v);
-                    };
-                    auto argToString = [&](const Value& v) {
-                        return valueToString(v);
-                    };
+                    using VecRefFn = Value(*)(const std::vector<Value>&);
+                    using VecValFn = Value(*)(std::vector<Value>);
 
-                    if (params.size() == 0) {
-                        if (returnType == DataType::VOID) return std::monostate{};
-                        if (returnType == DataType::INT) {
-                            using Fn = int(*)();
-                            return reinterpret_cast<Fn>(sym)();
-                        }
-                        if (returnType == DataType::FLOAT) {
-                            using Fn = double(*)();
-                            return reinterpret_cast<Fn>(sym)();
-                        }
-                        if (returnType == DataType::STRING) {
-                            using Fn = std::string(*)();
-                            return reinterpret_cast<Fn>(sym)();
-                        }
-                        if (returnType == DataType::BOOL) {
-                            using Fn = bool(*)();
-                            return reinterpret_cast<Fn>(sym)();
-                        }
+                    {
+                        auto fn = reinterpret_cast<VecRefFn>(sym);
+                        if (fn) return fn(args);
                     }
 
-                    if (params.size() == 1) {
-                        if (params[0].type == DataType::STRING) {
-                            if (returnType == DataType::STRING) {
-                                auto fn = reinterpret_cast<std::string(*)(const std::string&)>(sym);
-                                return fn(argToString(args[0]));
-                            }
-                            if (returnType == DataType::INT) {
-                                auto fn = reinterpret_cast<int(*)(const std::string&)>(sym);
-                                return fn(argToString(args[0]));
-                            }
-                            if (returnType == DataType::FLOAT) {
-                                auto fn = reinterpret_cast<double(*)(const std::string&)>(sym);
-                                return fn(argToString(args[0]));
-                            }
-                            if (returnType == DataType::BOOL) {
-                                auto fn = reinterpret_cast<bool(*)(const std::string&)>(sym);
-                                return fn(argToString(args[0]));
-                            }
-                        }
-                        if (params[0].type == DataType::FLOAT) {
-                            auto fn = reinterpret_cast<double(*)(double)>(sym);
-                            double result = fn(argToFloat(args[0]));
-                            if (returnType == DataType::INT) return static_cast<int>(result);
-                            if (returnType == DataType::FLOAT) return result;
-                            if (returnType == DataType::BOOL) return result != 0.0;
-                        }
-                        if (params[0].type == DataType::INT) {
-                            auto fn = reinterpret_cast<int(*)(int)>(sym);
-                            int result = fn(argToInt(args[0]));
-                            if (returnType == DataType::INT) return result;
-                            if (returnType == DataType::FLOAT) return static_cast<double>(result);
-                            if (returnType == DataType::BOOL) return result != 0;
-                        }
-                    }
-if (params.size() == 2) {
-                        if (params[0].type == DataType::FLOAT && params[1].type == DataType::FLOAT) {
-                            auto fn = reinterpret_cast<double(*)(double, double)>(sym);
-                            double result = fn(argToFloat(args[0]), argToFloat(args[1]));
-                            if (returnType == DataType::INT) return static_cast<int>(result);
-                            if (returnType == DataType::FLOAT) return result;
-                            if (returnType == DataType::BOOL) return result != 0.0;
-                        }
-                        if (params[0].type == DataType::INT && params[1].type == DataType::INT) {
-                            auto fn = reinterpret_cast<int(*)(int, int)>(sym);
-                            int result = fn(argToInt(args[0]), argToInt(args[1]));
-                            if (returnType == DataType::INT) return result;
-                            if (returnType == DataType::FLOAT) return static_cast<double>(result);
-                            if (returnType == DataType::BOOL) return result != 0;
-                        }
+                    {
+                        auto fn = reinterpret_cast<VecValFn>(sym);
+                        if (fn) return fn(args);
                     }
 
-                    throwError("External function signature not supported for '" + symbol + "'", -1);
+                    throwError("External function does not match expected vector<Value> signature for '" + symbol + "'", -1);
                     return std::monostate{};
                 };
                 for (const auto& param : externDecl->params) {
