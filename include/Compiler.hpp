@@ -28,6 +28,7 @@ class Compiler{
     int nextAvailableIndex = 1;
     std::vector<Instruction> Code;
     std::vector<DataType> indexTypes;
+    std::string currentSourceDir;
     
     void emitByte(uint32_t byte) {
         Code.push_back({static_cast<OpCode>(byte), {}});
@@ -297,10 +298,21 @@ class Compiler{
 
                 if (c == '#') {
                     i++;
+                    size_t commentStart = i;
                     while (i < src.size() && src[i] != '#') {
                         i++;
                     }
-                    i++;
+                    if (i > commentStart) {
+                        std::string commentContent = src.substr(commentStart, i - commentStart);
+                        if (commentContent.find("__SOURCE_DIR__") != std::string::npos) {
+                            size_t dirStart = commentContent.find('"');
+                            size_t dirEnd = commentContent.rfind('"');
+                            if (dirStart != std::string::npos && dirEnd != std::string::npos && dirStart < dirEnd) {
+                                currentSourceDir = commentContent.substr(dirStart + 1, dirEnd - dirStart - 1);
+                            }
+                        }
+                    }
+                    if (i < src.size()) i++;
                     continue;
                 }
                 if (c == '"'){
@@ -440,6 +452,15 @@ class Compiler{
                     current++;
                     if (tokens[current].type == TOKEN_SEMICOLON) current++;
                     blockStatements.push_back(std::make_unique<LibStmt>(libHandle, libName));
+                    continue;
+                }
+                if (tokens[current].type == TOKEN_IMPORT) {
+                    current++;
+                    if (tokens[current].type != TOKEN_STRING) throwError("Expected string path after 'import'", -1);
+                    std::string importPath = tokens[current].lexeme;
+                    current++;
+                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                    blockStatements.push_back(std::make_unique<ImportStmt>(importPath));
                     continue;
                 }
                 if (tokens[current].type == TOKEN_EXTERN) {
@@ -757,7 +778,14 @@ class Compiler{
                 }
             }
             else if (auto libDecl = dynamic_cast<LibStmt*>(node.get())) {
-                registerNativeLibrary(libDecl->handle, libDecl->libPath);
+                std::string resolvedLibPath = libDecl->libPath;
+                if (!currentSourceDir.empty() && libDecl->libPath.find('/') == std::string::npos) {
+                    resolvedLibPath = currentSourceDir + "/" + libDecl->libPath;
+                }
+                registerNativeLibrary(libDecl->handle, resolvedLibPath);
+            }
+            else if (auto importDecl = dynamic_cast<ImportStmt*>(node.get())) {
+                emitInstruction(OP_IMPORT, importDecl->path);
             }
             else if (auto externDecl = dynamic_cast<ExternStmt*>(node.get())) {
                 Function function;
@@ -1031,6 +1059,9 @@ public:
                 case OP_PUSH:
                     push(instr.value);
                     break;
+                case OP_IMPORT: {
+                    break;
+                }
                 case OP_ADD:{
                     Value b = pop();
                     Value a = pop();

@@ -1,6 +1,8 @@
 const int NULL = -2147483647;
 const int true = 1;
 const int false = 0;
+const int doTest = 0;
+const float pi = 3.141592653589
 
 int isNull(float in){
     if (in == NULL){
@@ -11,13 +13,7 @@ int isNull(float in){
         return 0;
     }
 }
-string String(float in){
-    if (isNull(in)){
-        return "";
-    }
-    #string concat turns floats int strings#
-    return in + "";
-}
+
 #standard library#
 lib std = loadLibrary("standard");
 #basic string conversion#
@@ -41,18 +37,30 @@ extern(std) string input();
 extern(std) string let(int, string);
 extern(std) int charToAscii(string);
 
+#Gets the type based on the input as a string#
 extern(std) string typeAsString(string);
-int typeAsInt(string in){
-    string dataType = typeAsString(in);
-    #they are based of Value.hpp in isi source code#
-    if (dataType == "int"){ return 0; }
-    if (dataType == "float"){ return 1; }
-    if (dataType == "string"){ return 2; }
-    if (dataType == "bool"){ return 3; }
-    if (dataType == "char"){ return 4; }
-    if (dataType == "void"){ return 5; }
-    return NULL;
+
+#Gets the length of a string#
+extern(std) int lengthof(string);
+
+string getLets(string in, int from, int to){
+    const int strsize = lengthof(in);
+    if (to > strsize){return NULL}
+    if (from > strsize){return NULL}
+    if (from < 0){return NULL}
+    if (from == to){return let(from, in)}
+    #the starting point#
+    int i = from;
+    string out;
+    while (i < to){
+        out = out + let(i,in);
+        i = i + 1;
+    }
+    return out;
 }
+
+#gets a type and converts it to int#
+extern(std) int typeAsInt(string);
 
 #prevents data loss when converting float->int#
 const int floatToInt(float in){
@@ -79,13 +87,16 @@ const int floatToInt(float in){
 
 }
 
+#quick test if stuff from standard work#
 int test(){
+    const string str = "Hello World!"
     auto v = 4.4;
     print(false,"\n");
-    print(v,"\n");
+    print(v,"\n\n-other-\n\n");
+    print(pi,"\n",lengthof(pi),"\n");
+    print(getLets(str, 0, 5),"\n");
     const int c = 0;
-    const string str = "Hello World!";
     print(let(c, str),"\n");
+    print(typeAsInt("true"),"\n");
     return 0;
 }
-exit(test());

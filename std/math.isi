@@ -1,3 +1,10 @@
-lib math = loadLib("math");
+lib math = loadLibrary("libm");
 
-extern(math) float sqrt(float x);
+extern(math) float sqrt(float);
+extern(math) float sin(float);
+extern(math) float cos(float);
+
+float x = 4;
+print("sqrt of " + x + ": ", sqrt(x),"\n");
+print("sin of " + x + ": ", sin(x),"\n");
+print("cos of " + x + ": ", cos(x),"\n");

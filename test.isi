@@ -1,7 +1,6 @@
-lib std = loadLibrary("standard");
-extern(std) string getFlag(int);
-
+import "std/standard.isi";
+import "std/fileio.isi";
 string str = "Hello World!";
 string endl = "\n";
 
-print(str+endl);
+print(typeAsString(str+endl));

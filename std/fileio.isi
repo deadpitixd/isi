@@ -1,0 +1,19 @@
+#
+    Written by @deadpitixd
+    
+    Last reviewed for ISI A4
+    Last edit on 23 May 2026
+
+    This library is for file handling
+#
+
+lib l = loadLibrary("fileio");
+
+#checks if the file at path n exists#
+extern(l) int exists(string);
+
+#reads the file a, with the mode b#
+extern(l) string readFile(string,string);
+
+print(exists("fileio.cpp"),"\n");
+print(readFile("libCompile.sh","r"),"\n");

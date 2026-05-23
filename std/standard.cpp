@@ -53,4 +53,19 @@ extern "C" {
         // not working currently sadly
         return std::monostate{};
     }
+    Value andi(const std::vector<Value>& args){
+        for (Value v : args){
+            if (valueToInt(v, -1) == -1 || valueToInt(v) == 0){
+                return 0;
+            }
+        }
+        return 1;
+    }
+    Value lengthof(const std::vector<Value>& args){
+        if (args.size() == 0) return 0;
+        return (int)valueToString(args[0]).size();
+    }
+    Value typeAsInt(const std::vector<Value>& args){
+        return (int)args[0].index();
+    }
 }

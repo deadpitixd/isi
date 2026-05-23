@@ -73,6 +73,8 @@ vp_result vp_Awritefile(const char* fileName, const char* data);
   */
 size_t vp_readfileS(char* ptr, const char* fileName, const size_t bufSize);
 
+size_t vp_readfileM(char* ptr, const char* fileName, const size_t bufSize, const char* mode);
+
 // ### Gets the size of a file.
 // #### (const char* File name)
 size_t vp_getFileSize(const char* fileName);

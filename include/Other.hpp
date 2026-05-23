@@ -199,6 +199,9 @@ void* loadNativeLibrary(const std::string& handle) {
             candidates.push_back(std::string("./") + libraryName);
         }
         candidates.push_back(libraryName);
+        if (libraryName.find('.') == std::string::npos) {
+            candidates.push_back(libraryName + ".so");
+        }
     } else {
         candidates.push_back(libraryName);
         std::string platformName = getPlatformSharedLibraryName(libraryName);
@@ -210,6 +213,10 @@ void* loadNativeLibrary(const std::string& handle) {
             std::string libCandidate = std::string("lib") + libraryName + ".so";
             candidates.push_back(std::string("./") + libCandidate);
             candidates.push_back(libCandidate);
+        }
+        candidates.push_back(std::string("./std/") + libraryName + ".so");
+        if (platformName != libraryName) {
+            candidates.push_back(std::string("./std/") + platformName);
         }
     }
 

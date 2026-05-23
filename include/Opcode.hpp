@@ -4,6 +4,7 @@
 enum OpCode : uint
 {
     OP_PUSH,
+    OP_IMPORT,
     OP_ADD,
     OP_SUB,
     OP_MUL,

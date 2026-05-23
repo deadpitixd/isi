@@ -10,6 +10,7 @@ int assembleMode=0;
 std::unordered_set<std::string> flags = {};
 #include <print>
 #include <fstream>
+#include <sstream>
 #include <iostream>
 #include <meta>
 #include <Other.hpp>
@@ -22,6 +23,104 @@ std::unordered_set<std::string> flags = {};
 
 namespace fs = std::filesystem;
 std::string fileName;
+
+std::string resolveImports(const std::string& source, const fs::path& currentDir, std::unordered_set<std::string>& seenFiles) {
+    std::string output;
+    output.reserve(source.size());
+    size_t i = 0;
+
+    while (i < source.size()) {
+        if (source[i] == '#') {
+            output.push_back(source[i++]);
+            while (i < source.size() && source[i] != '#') {
+                output.push_back(source[i++]);
+            }
+            if (i < source.size()) output.push_back(source[i++]);
+            continue;
+        }
+
+        if (source[i] == '"') {
+            output.push_back(source[i++]);
+            while (i < source.size()) {
+                if (source[i] == '\\' && i + 1 < source.size()) {
+                    output.push_back(source[i++]);
+                    output.push_back(source[i++]);
+                    continue;
+                }
+                output.push_back(source[i]);
+                if (source[i] == '"') {
+                    i++;
+                    break;
+                }
+                i++;
+            }
+            continue;
+        }
+
+        if (i + 6 <= source.size() && source.compare(i, 6, "import") == 0) {
+            char next = (i + 6 < source.size()) ? source[i + 6] : '\0';
+            if (!std::isalnum(static_cast<unsigned char>(next)) && next != '_' && (std::isspace(static_cast<unsigned char>(next)) || next == '"')) {
+                size_t j = i + 6;
+                while (j < source.size() && std::isspace(static_cast<unsigned char>(source[j]))) {
+                    j++;
+                }
+                if (j < source.size() && source[j] == '"') {
+                    j++;
+                    size_t pathStart = j;
+                    while (j < source.size() && source[j] != '"') {
+                        j++;
+                    }
+                    if (j >= source.size()) {
+                        throwError("Unterminated import string", -1);
+                    }
+                    std::string importPath = source.substr(pathStart, j - pathStart);
+                    j++;
+                    while (j < source.size() && std::isspace(static_cast<unsigned char>(source[j]))) {
+                        j++;
+                    }
+                    if (j < source.size() && source[j] == ';') {
+                        j++;
+                    }
+                    i = j;
+
+                    if (importPath.empty()) {
+                        continue;
+                    }
+
+                    fs::path targetPath = currentDir / importPath;
+                    if (!fs::exists(targetPath)) {
+                        throwError("Couldn't find imported file " + targetPath.string(), -1);
+                    }
+                    fs::path canonicalPath = fs::canonical(targetPath);
+                    std::string canonicalKey = canonicalPath.string();
+                    if (seenFiles.contains(canonicalKey)) {
+                        continue;
+                    }
+                    seenFiles.insert(canonicalKey);
+
+                    std::ifstream importedFile(canonicalPath);
+                    if (!importedFile) {
+                        throwError("Failed to open imported file " + canonicalPath.string(), -1);
+                    }
+                    std::ostringstream buffer;
+                    buffer << importedFile.rdbuf();
+                    std::string importedSource = buffer.str();
+                    importedFile.close();
+
+                    // Inject source directory marker before imported content
+                    fs::path importSourceDir = canonicalPath.parent_path();
+                    output += "# __SOURCE_DIR__ \"" + importSourceDir.string() + "\" #\n";
+                    output += resolveImports(importedSource, importSourceDir, seenFiles);
+                    continue;
+                }
+            }
+        }
+
+        output.push_back(source[i++]);
+    }
+
+    return output;
+}
 
 int main(int argc, char* argv[]){   
     // Self explanatory
@@ -134,20 +233,20 @@ int main(int argc, char* argv[]){
     
     std::fstream file;
     file.open(fileName);
-    std::string code;
-
-    std::string line;
-    while (getline(file, line)){
-        code+=line;
-    }
+    std::ostringstream codeBuffer;
+    codeBuffer << file.rdbuf();
+    std::string code = codeBuffer.str();
     file.close();
+
+    std::unordered_set<std::string> seenImports;
+    std::string resolvedCode = resolveImports(code, fs::path(fileName).parent_path(), seenImports);
     if (debug && flags.contains("--print-chars")){
     for (int i = 0; i < code.size(); i++) {
         std::cout << "[" << i << "] " << code[i] << std::endl;
     }
     }
     Compiler compiler;
-    std::vector<Token> lexedOut = compiler.lex(code);
+    std::vector<Token> lexedOut = compiler.lex(resolvedCode);
     if (debug && !useDevEnv){
         for (Token i : lexedOut){
             std::cout << i.lexeme << ", " << i.type << "\n";
@@ -159,7 +258,7 @@ int main(int argc, char* argv[]){
             std::cout << i.lexeme << "\n" << i.type << "\n";
         }
     }
-    std::vector<Token> lexed = compiler.lex(code);
+    std::vector<Token> lexed = compiler.lex(resolvedCode);
     auto nodes = compiler.makeAST(lexed);
     compiler.compile(nodes);
     std::vector<Instruction> compiled = compiler.getCode();

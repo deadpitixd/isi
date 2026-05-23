@@ -1,9 +1,11 @@
 #include <cmath>
 #include "other.hpp"
 
+namespace math{
 extern "C" {
-    Value sqrt_(std::vector<Value> args){
+    Value sqrt(std::vector<Value> args){
         if (args.empty()) return ISI_NULL;
-        return __builtin_sqrt(valueToFloat(args[0]));
+        return __sqrt(valueToFloat(args[0]));
     }
+}
 }
