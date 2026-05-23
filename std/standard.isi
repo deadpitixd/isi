@@ -1,4 +1,7 @@
 const int NULL = -2147483647;
+const int true = 1;
+const int false = 0;
+
 int isNull(float in){
     if (in == NULL){
         return 1;
@@ -22,6 +25,13 @@ extern(std) int stringToInt(string);
 extern(std) int stringToFloat(string);
 #input#
 extern(std) string input();
+#returns the value type as a string
+ Strings can store every value, but i should replace it
+ later with an auto keyword
+
+ Thankfully in C++, std::vector<Value> doesnt have the data type
+ saved, so it guesses it based off valueTypeToString();
+#
 
 #
 * letter n of string str,
@@ -29,7 +39,20 @@ extern(std) string input();
 * WHEN chars WILL BE ADDED
 #
 extern(std) string let(int, string);
-#extern(std) int charToAscii(string);#
+extern(std) int charToAscii(string);
+
+extern(std) string typeAsString(string);
+int typeAsInt(string in){
+    string dataType = typeAsString(in);
+    #they are based of Value.hpp in isi source code#
+    if (dataType == "int"){ return 0; }
+    if (dataType == "float"){ return 1; }
+    if (dataType == "string"){ return 2; }
+    if (dataType == "bool"){ return 3; }
+    if (dataType == "char"){ return 4; }
+    if (dataType == "void"){ return 5; }
+    return NULL;
+}
 
 #prevents data loss when converting float->int#
 const int floatToInt(float in){
@@ -57,6 +80,9 @@ const int floatToInt(float in){
 }
 
 int test(){
+    auto v = 4.4;
+    print(false,"\n");
+    print(v,"\n");
     const int c = 0;
     const string str = "Hello World!";
     print(let(c, str),"\n");

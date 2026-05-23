@@ -28,7 +28,7 @@ int main(int argc, char* argv[]){
     if (argc<2) { throwError("No file name given",-1);}
     fileName = argv[1];
     bool readFlag=true;
-    if (fileName == "--percentflag") {
+    if (fileName == "%") {
         readFlag = false;
         fileName = argv[2];
     }

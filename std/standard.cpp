@@ -18,7 +18,7 @@ extern "C" {
         const string str = valueToString(args[0]);
         try
         {
-            return atoi(str.c_str());
+            return std::stoi(str);
         }
         catch(const std::exception& e)
         {
@@ -26,13 +26,12 @@ extern "C" {
         }
         return ISI_NULL;
     }
-
     Value stringToFloat(const std::vector<Value>& args) {
         if (args.empty()) return ISI_NULL;
         const string str = valueToString(args[0]);
         try
         {
-            return atof(str.c_str());
+            return std::stof(str);
         }
         catch(const std::exception& e)
         {
@@ -40,9 +39,18 @@ extern "C" {
         }
         return ISI_NULL;
     }
-
+    Value typeAsString(const std::vector<Value>& args){
+        return valueTypeToStr(args[0]);
+    }
     Value let(const std::vector<Value>& args) {
         // easy one liner
         return string(1, valueToString(args[1])[valueToInt(args[0])]);
+    }
+    Value charToAscii(const std::vector<Value>& args){
+        return std::to_string(valueToString(args[1])[0]);
+    }
+    Value getFlag(const std::vector<Value>& args){
+        // not working currently sadly
+        return std::monostate{};
     }
 }

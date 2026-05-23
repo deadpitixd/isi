@@ -383,6 +383,7 @@ class Compiler{
                 i++;
             }
             for (int i = 0; i < tokens.size(); i++){
+                if (tokens[i].type == TOKEN_IDENTIFIER){
                 if (tokens[i].lexeme == "print"){ tokens[i].type = TOKEN_PRINT; }
                 if (tokens[i].lexeme == "extern"){ tokens[i].type = TOKEN_EXTERN; }
                 if (tokens[i].lexeme == "import"){ tokens[i].type = TOKEN_IMPORT; }
@@ -400,6 +401,7 @@ class Compiler{
                 if (tokens[i].lexeme == "return"){ tokens[i].type = TOKEN_RETURN; }
                 if (tokens[i].lexeme == "throw"){ tokens[i].type = TOKEN_THROW; }
                 if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
+                }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
             return tokens;

@@ -112,6 +112,9 @@ enum isiTokenType : uint{
     TOKEN_FLOAT,
     TOKEN_LIB,
 
+    TOKEN_TRUE,
+    TOKEN_FALSE,
+
     // Comparison operators
     TOKEN_BIGGER,
     TOKEN_SMALLER,
