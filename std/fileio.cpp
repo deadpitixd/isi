@@ -1,6 +1,17 @@
 #include "other.hpp"
 #include <fstream>
 
+int vp_Mwritefile(const char* fileName, const char* data, const char* mode){
+    FILE* fptr = fopen(fileName, mode);
+    if (fptr == NULL)
+        return 0;
+
+    fputs(data, fptr);
+    fclose(fptr);
+    return 1;
+}
+
+
 size_t vp_readfileM(char* ptr, const char* fileName, const size_t bufSize, const char* mode){
     FILE *fptr = fopen(fileName, mode);
 
@@ -37,7 +48,8 @@ extern "C"{
         return out;
     }
     Value writeFile(std::vector<Value>& args){
-        return ISI_NULL;
+        if (args.size() < 2) return ISI_NULL;
+        return vp_Mwritefile(valueToString(args[0]).c_str(), valueToString(args[1]).c_str(),valueToString(args[2]).c_str());
     }
     Value exists(std::vector<Value>& args){
         std::ofstream file(valueToString(args[0]), std::ios::in);

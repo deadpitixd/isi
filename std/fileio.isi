@@ -14,6 +14,7 @@ extern(l) int exists(string);
 
 #reads the file a, with the mode b#
 extern(l) string readFile(string,string);
-
-print(exists("fileio.cpp"),"\n");
-print(readFile("libCompile.sh","r"),"\n");
+#writes data to a file, with a specific mode#
+#1: filename 2: data 3: mode#
+#returns 1 if written correctly#
+extern(l) int writeFile(string,string,string);
