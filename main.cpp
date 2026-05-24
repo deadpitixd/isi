@@ -7,7 +7,9 @@ bool debug = false;
 bool compiledBin = false;
 int assembleMode=0;
 #include <unordered_set>
+#include <vector>
 std::unordered_set<std::string> flags = {};
+std::vector<std::pair<std::string,std::string>> options;
 #include <print>
 #include <fstream>
 #include <sstream>
@@ -17,7 +19,6 @@ std::unordered_set<std::string> flags = {};
 #include <filesystem>
 #include <Compiler.hpp>
 #include <Optimizer.hpp>
-#define __VAPOR_H_EXC_INI
 // some stuff for some easier thingies
 #include <vapor/vapor.h>
 
@@ -198,12 +199,13 @@ int main(int argc, char* argv[]){
                 }
                 continue;
             }
+            if (1 and 1){}
 
             size_t pipePos = currentLine.find('|');
             if (pipePos != std::string::npos) {
                 std::string opPart = currentLine.substr(0, pipePos);
                 std::string valPart = currentLine.substr(pipePos + 1);
-
+ 
                 OpCode op = static_cast<OpCode>(std::stoi(opPart));
                 Value val;
 

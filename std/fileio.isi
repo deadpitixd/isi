@@ -18,3 +18,13 @@ extern(l) string readFile(string,string);
 #1: filename 2: data 3: mode#
 #returns 1 if written correctly#
 extern(l) int writeFile(string,string,string);
+
+#copies a file from src to dest#
+extern(l) bool copyFile(string,string);
+
+extern(l) int deleteFile(string);
+
+extern(l) int createDirectories(string);
+
+copyFile("math.cpp","mathematiclib.cpp");
+deleteFile("mathematiclib.cpp");

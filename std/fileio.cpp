@@ -1,6 +1,7 @@
 #include "other.hpp"
 #include <fstream>
-
+#include <filesystem>
+#define fs std::filesystem
 int vp_Mwritefile(const char* fileName, const char* data, const char* mode){
     FILE* fptr = fopen(fileName, mode);
     if (fptr == NULL)
@@ -11,10 +12,8 @@ int vp_Mwritefile(const char* fileName, const char* data, const char* mode){
     return 1;
 }
 
-
 size_t vp_readfileM(char* ptr, const char* fileName, const size_t bufSize, const char* mode){
     FILE *fptr = fopen(fileName, mode);
-
     if (!fptr){
         ptr[0] = '\0';
         return 0;
@@ -58,5 +57,20 @@ extern "C"{
         }
         else 
             return 1;
+    }
+    Value copyFile(std::vector<Value>& args){
+        const string fileName = valueToString(args[0]);
+        const string out = valueToString(args[1]);
+        fs::copy(fileName, out);
+        return null;
+    }
+    Value deleteFile(std::vector<Value>& args){
+        const string fileName = valueToString(args[0]);
+        return fs::remove(fileName);
+    }
+    Value createDirectory(std::vector<Value>& args){
+        const string dirname = valueToString(args[0]);
+
+        return fs::create_directories(dirname);
     }
 }

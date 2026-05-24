@@ -6,3 +6,4 @@
 using std::string;
 
 const int ISI_NULL = -2147483647;
+#define null std::monostate{}
