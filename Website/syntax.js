@@ -1,3 +1,5 @@
+// this should be included in every file that has code displayed
+
 const highlightCode = () => {
   const blocks = [...document.querySelectorAll('.syntax-highlight'), ...document.querySelectorAll('.container')];
 

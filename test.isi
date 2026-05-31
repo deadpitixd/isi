@@ -1,6 +1,3 @@
-import "std/standard.isi";
-import "std/fileio.isi";
-string str = "Hello World!";
-string endl = "\n";
-
-print(typeAsString(str+endl));
+const int i = 4;
+i = 9;
+print(i,"\n");

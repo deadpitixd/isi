@@ -25,6 +25,3 @@ extern(l) bool copyFile(string,string);
 extern(l) int deleteFile(string);
 
 extern(l) int createDirectories(string);
-
-copyFile("math.cpp","mathematiclib.cpp");
-deleteFile("mathematiclib.cpp");

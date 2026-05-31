@@ -31,7 +31,7 @@ extern(std) string input();
 
 #
 * letter n of string str,
-* THIS WILL BE REPLACED BY SQUARE BRACKETS
+* THIS WILL BE REPLACED BY SQUARE BRACKETS []
 * WHEN chars WILL BE ADDED
 #
 extern(std) string let(int, string);
@@ -43,6 +43,7 @@ extern(std) string typeAsString(string);
 #Gets the length of a string#
 extern(std) int lengthof(string);
 
+#Gets letters from 'a' to 'b'#
 string getLets(string in, int from, int to){
     const int strsize = lengthof(in);
     if (to > strsize){return NULL}
@@ -59,15 +60,22 @@ string getLets(string in, int from, int to){
     return out;
 }
 
+int Int(float in){
+    const int out = in;
+    return out;
+}
+
 #gets a type and converts it to int#
 extern(std) int typeAsInt(string);
 
-#prevents data loss when converting float->int#
+#prevents data loss when converting float->int
+ basically rounds the number
+#
 const int floatToInt(float in){
     #trims the float#
-    int i = in;
+    const int i = in;
     #gets the floating point#
-    float fpoint = in - i;
+    const float fpoint = in - i;
     if (i == in){
         return i;
     }

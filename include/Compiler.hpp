@@ -196,6 +196,9 @@ class Compiler{
                 }
                 
                 if (symbolTable.contains(assign->name)) {
+                    if(symbolTable[assign->name].isConst){
+                        throwError("Cannot assign a value to a constant variable '"+assign->name+"'.",-2);
+                    }
                     DataType lhsType = symbolTable[assign->name].type;
                     if (!isTypeCompatible(lhsType, rhsType)) {
                         throwError("Cannot assign " + std::string(typeToString(rhsType)) + 

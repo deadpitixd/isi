@@ -1,10 +1,26 @@
-lib math = loadLibrary("libm");
+int mod(int a, int b){
+    if (b == 0){
+        return 0;
+    }
+    return a - (b * (a / b));
+}
 
-extern(math) float sqrt(float);
-extern(math) float sin(float);
-extern(math) float cos(float);
-
-float x = 4;
-print("sqrt of " + x + ": ", sqrt(x),"\n");
-print("sin of " + x + ": ", sin(x),"\n");
-print("cos of " + x + ": ", cos(x),"\n");
+float pow(float base, int exp){
+    if (exp == 0) {
+        return 1.0;
+    }
+    
+    if (exp < 0) {
+        base = 1.0 / base;
+        exp = -exp;
+    }
+    
+    int next_exp = exp / 2; 
+    float half = pow(base, next_exp);
+    
+    if (mod(exp, 2) == 0) {
+        return half * half;
+    } else {
+        return base * half * half;
+    }
+}
