@@ -85,6 +85,7 @@ enum isiTokenType : uint{
     TOKEN_WHILE,
     TOKEN_CONST,
     TOKEN_THROW,
+    TOKEN_LOADLIB,
 
     // operators
     TOKEN_PLUS,
@@ -107,6 +108,7 @@ enum isiTokenType : uint{
     // Base data types
     TOKEN_INT,
     TOKEN_STRING_T,
+    TOKEN_CHAR_T,
     TOKEN_CHAR,
     TOKEN_BOOL,
     TOKEN_FLOAT,
@@ -125,7 +127,11 @@ enum isiTokenType : uint{
     TOKEN_EXIT,
     
     // special
-    TOKEN_EOF
+    TOKEN_EOF,
+
+    // Formats
+    TOKEN_F_STR
+
 };
 
 struct Token {
@@ -290,6 +296,7 @@ std::string typeToString(DataType type) {
         case DataType::FLOAT:  return "float";
         case DataType::STRING: return "string";
         case DataType::BOOL:   return "bool";
+        case DataType::CHAR:   return "char";
         default:               return "unknown";
     }
 }
@@ -300,9 +307,12 @@ std::string stringify(const Value& v) {
             return arg;
         } else if constexpr (std::is_same_v<T, bool>) {
             return arg ? "true" : "false";
-        } else if constexpr (std::is_same_v<T, std::monostate>) { return "null"; } 
-            else {
-        return std::to_string(arg);
+        } else if constexpr (std::is_same_v<T, char>) {
+            return std::string(1, arg); 
+        } else if constexpr (std::is_same_v<T, std::monostate>) { 
+            return "null"; 
+        } else {
+            return std::to_string(arg);
         }
     }, v);
 }
@@ -325,7 +335,7 @@ inline void throwError(std::string msg, int errCode, bool runtimeErr, std::strin
         else
             std::cerr << ISI_Color::b_red << msg << ISI_Color::b_cyan << ", at OpCode line: " << ISI_Color::b_blue << *cI << ISI_Color::b_cyan << " (Op: '" << ISI_Color::b_blue << std::to_string(cCode[*cI].op) << " | " << stringify(cCode[*cI].value) << ISI_Color::b_cyan << "')" << ISI_Color::reset << "\n";
     } else {
-        if (runtimeErr)
+        if (errType.empty())
             std::cerr << ISI_Color::b_red << "Error: " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
         else
             std::cerr << ISI_Color::b_red << errType << ": " << ISI_Color::b_cyan << msg << ISI_Color::reset << "\n";
@@ -369,6 +379,8 @@ std::string valueToString(const Value& val) {
         return std::to_string(std::get<double>(val));
     } else if (std::holds_alternative<bool>(val)) {
         return std::get<bool>(val) ? "true" : "false";
+    } else if (std::holds_alternative<char>(val)){
+        return std::string(1,std::get<char>(val));
     }
     return "";
 }
@@ -378,6 +390,7 @@ static DataType getValType(const Value& val) {
     if (std::holds_alternative<double>(val)) return DataType::FLOAT;
     if (std::holds_alternative<std::string>(val)) return DataType::STRING;
     if (std::holds_alternative<bool>(val)) return DataType::BOOL;
+    if (std::holds_alternative<char>(val)) return DataType::CHAR;
 
     if (val.valueless_by_exception()) {
         throwError("Internal Error: Value is in an invalid state", -4);
@@ -406,7 +419,7 @@ long long valueToInt(const Value& val, int nullVal = 0) {
     return 0;
 }
 
-DataType valueToType(const Value& val){
+DataType valueToType(const Value& val) {
     if (std::holds_alternative<std::string>(val)) {
         return DataType::STRING;
     } else if (std::holds_alternative<int>(val)) {
@@ -415,10 +428,11 @@ DataType valueToType(const Value& val){
         return DataType::FLOAT;
     } else if (std::holds_alternative<bool>(val)) {
         return DataType::BOOL;
+    } else if (std::holds_alternative<char>(val)) {
+        return DataType::CHAR;
     }
     return DataType::INT;
 }
-
 DataType getLiteralType(const std::string& lexeme) {
     if (lexeme.find('"') != std::string::npos) return DataType::STRING;
     if (lexeme.find('.') != std::string::npos) return DataType::FLOAT;
@@ -432,16 +446,18 @@ inline bool isNumeric(const Value& val) {
 
 bool compatibleTypes(DataType a, DataType b){
     if (a == b) return true;
-    if (a == DataType::INT && b == DataType::FLOAT || b == DataType::STRING) { return false; }
-    if (a == DataType::STRING && b == DataType::FLOAT || b == DataType::INT) { return true; }
+    if (a == DataType::INT && (b == DataType::FLOAT || b == DataType::STRING)) { return false; }
+    if (a == DataType::STRING && (b == DataType::FLOAT || b == DataType::INT)) { return true; }
     return false;
 }
 
 bool isTypeCompatible(DataType expected, DataType given) {
     if (expected == given) return true;
     if (expected == DataType::FLOAT && given == DataType::INT) return true;
-    if (expected == DataType::STRING && given == DataType::INT || given == DataType::FLOAT) return true;
+    if (expected == DataType::STRING && (given == DataType::INT || given == DataType::FLOAT || given == DataType::CHAR)) return true;
     if (expected == DataType::INT && given == DataType::FLOAT) return true;
+    if (expected == DataType::CHAR && given == DataType::INT) return true;
+    if (expected == DataType::INT && given == DataType::CHAR) return true;
     return false;
 }
 
@@ -451,6 +467,8 @@ Value convertValSafely(const Value& val, const DataType& expected, const DataTyp
     if (!isTypeCompatible(expected,given)) { return std::monostate{};}
     if (expected==DataType::INT && given == DataType::FLOAT) return (int)valueToFloat(val);
     if (expected==DataType::FLOAT && given == DataType::INT) return valueToFloat(val);
+    if (expected==DataType::CHAR && given == DataType::INT) return (char)valueToInt(val);
+    if (expected==DataType::INT && given == DataType::CHAR) return (int)(valueToString(val)[0]);
     if (expected==DataType::STRING) return valueToString(val);
     return std::monostate{};
 }
@@ -474,4 +492,77 @@ Value defaultValueOfType(DataType type){
         };
     }
     return std::monostate{};
+}
+
+enum errors {
+    typeError = -8,
+    syntaxError,
+    strayKeywordError,
+    undefinedError,
+    undefinedFunctionError,
+    uncaughtException,
+    staticException, // This exception can only be added by the compiler
+    defaultException
+};
+
+bool tokenIsDecl(isiTokenType tok){
+    switch (tok){
+        case TOKEN_INT: return true;
+        case TOKEN_FLOAT: return true;
+        case TOKEN_BOOL: return true;
+        case TOKEN_CHAR_T: return true;
+        case TOKEN_STRING_T: return true;
+        default: return false;
+    };
+}
+
+#include <climits>
+
+size_t editDistance(const std::string& s1, const std::string& s2) {
+    const size_t len1 = s1.size();
+    const size_t len2 = s2.size();
+    
+    std::vector<size_t> col(len2 + 1);
+    std::vector<size_t> prevCol(len2 + 1);
+    
+    for (size_t i = 0; i <= len2; ++i) {
+        prevCol[i] = i;
+    }
+    
+    for (size_t i = 0; i < len1; ++i) {
+        col[0] = i + 1;
+        for (size_t j = 0; j < len2; ++j) {
+            size_t cost = (s1[i] == s2[j]) ? 0 : 1;
+            col[j + 1] = std::min({
+                col[j] + 1,
+                prevCol[j + 1] + 1, 
+                prevCol[j] + cost
+            });
+        }
+        col.swap(prevCol);
+    }
+    return prevCol[len2];
+}
+
+std::string nearestString(const std::vector<std::string> &set, const std::string &nearestTo) {
+    if (set.empty()) return "";
+
+    std::string curNearest = "";
+    size_t minDistance = UINT_MAX;
+
+    for (const std::string &s : set) {
+        if (s == nearestTo) return nearestTo;
+
+        size_t dist = editDistance(nearestTo, s);
+        if (dist < minDistance) {
+            minDistance = dist;
+            curNearest = s;
+        }
+    }
+
+    if (minDistance > 3) {
+        return "";
+    }
+
+    return curNearest;
 }

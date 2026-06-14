@@ -1,0 +1,39 @@
+#
+    Last compliance check with ISCR was on 11.06.2026.
+    Written by @deadpitixd
+
+    Ported from ISI_Colors in 'Other.hpp'
+
+    Reviewed on ISI B1 Beta
+
+    ANSI codes mostly for text coloring. 
+#
+const string reset      = "\x1B[0m";
+const string clear      = "\x1B[2J\x1B[H";
+const string bold       = "\x1B[1m";
+const string underline  = "\x1B[4m";
+const string italic     = "\x1B[3m";
+const string black      = "\x1B[30m";
+const string red        = "\x1B[31m";
+const string green      = "\x1B[32m";
+const string yellow     = "\x1B[33m";
+const string blue       = "\x1B[34m";
+const string magenta    = "\x1B[35m";
+const string cyan       = "\x1B[36m";
+const string white      = "\x1B[37m";
+const string b_black    = "\x1B[90m";
+const string b_red      = "\x1B[91m";
+const string b_green    = "\x1B[92m";
+const string b_yellow   = "\x1B[93m";
+const string b_blue     = "\x1B[94m";
+const string b_magenta  = "\x1B[95m";
+const string b_cyan     = "\x1B[96m";
+const string b_white    = "\x1B[97m";
+const string bg_black   = "\x1B[40m";
+const string bg_red     = "\x1B[41m";
+const string bg_green   = "\x1B[42m";
+const string bg_yellow  = "\x1B[43m";
+const string bg_blue    = "\x1B[44m";
+const string bg_magenta = "\x1B[45m";
+const string bg_cyan    = "\x1B[46m";
+const string bg_white   = "\x1B[47m";

@@ -10,26 +10,27 @@ enum OpCode : uint
     OP_MUL,
     OP_DIV,
 
-    OP_STORE, // 5
+    OP_INDEX,
+
+    OP_STORE, // 6
     OP_LOAD,
 
-    OP_JMP, // 7
+    OP_JMP, // 8
     OP_JMP_IF_FALSE,
 
-    OP_EQUALS, // 9
+    OP_EQUALS, // 10
     OP_NOT_EQUALS,
     OP_GREATER,
     OP_LESS,
 
-    OP_CALL, // 13
+    OP_CALL, // 14
     OP_LOAD_LOCAL,
     OP_STORE_LOCAL,
     OP_RETURN,
 
-    OP_NOT, // 17 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
+    OP_NOT, // 18 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
 
-    OP_HALT, // 18
-    // print will be deprecated later, and added in the API
+    OP_HALT, // 19
     OP_PRINT,
     // Throw works like throw, i'll add catch later
     OP_THROW

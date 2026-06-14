@@ -295,6 +295,6 @@ int main(int argc, char* argv[]){
 
     vm.setFunctions(compiler.getFunctionTable());
     int errc = vm.run(compiled, compiler.getIndexTypes());
-    if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
+    if (debug || flags.contains("--out")) std::print("{}Program executed with code '{}{}{}'.{}\n", ISI_Color::cyan, ISI_Color::green , errc, ISI_Color::cyan, ISI_Color::reset);
     return errc;
 }

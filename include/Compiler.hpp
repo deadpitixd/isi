@@ -25,11 +25,15 @@ class Compiler{
     std::map<std::string, DataType> localTypes;
     std::map<std::string, std::string> libraryTable;
     std::map<std::string, Symbol> symbolTable;
+    int nextLibraryId = 1;
+    std::map<int, std::string> loadedLibraries;
     int nextAvailableIndex = 1;
     std::vector<Instruction> Code;
     std::vector<DataType> indexTypes;
     std::string currentSourceDir;
-    
+
+    std::vector<Token> *globTokens;
+
     void emitByte(uint32_t byte) {
         Code.push_back({static_cast<OpCode>(byte), {}});
     }
@@ -62,11 +66,91 @@ class Compiler{
 
     public:
         std::unique_ptr<Expr> primary() {
+            if (errTokens[current].type == TOKEN_F_STR) {
+                current++;
+                
+                if (errTokens[current].type != TOKEN_STRING) {
+                    throwError("String expected after f string", errors::syntaxError, true, "Syntax Error");
+                }
+
+                std::string format = errTokens[current].lexeme;
+                current++;
+
+                std::unique_ptr<Expr> rootExpr = nullptr;
+                std::string currentLiteral = "";
+
+                for (size_t i = 0; i < format.size(); i++) {
+                    if (format[i] == '{') {
+                        if (!currentLiteral.empty() || rootExpr == nullptr) {
+                            auto litNode = std::make_unique<LiteralExpr>(currentLiteral);
+                            if (rootExpr == nullptr) {
+                                rootExpr = std::move(litNode);
+                            } else {
+                                rootExpr = std::make_unique<BinaryExpr>(
+                                    std::move(rootExpr), 
+                                    Token{TOKEN_PLUS, "+"}, 
+                                    std::move(litNode)
+                                );
+                            }
+                            currentLiteral = "";
+                        }
+
+                        std::string varName = "";
+                        i++;
+                        while (i < format.size() && format[i] != '}') {
+                            varName += format[i];
+                            i++;
+                        }
+
+                        if (!varName.empty()) {
+                            auto varNode = std::make_unique<VariableExpr>(varName);
+                            if (rootExpr == nullptr) {
+                                rootExpr = std::move(varNode);
+                            } else {
+                                rootExpr = std::make_unique<BinaryExpr>(
+                                    std::move(rootExpr), 
+                                    Token{TOKEN_PLUS, "+"}, 
+                                    std::move(varNode)
+                                );
+                            }
+                        }
+                        continue;
+                    }
+                    currentLiteral += format[i];
+                }
+
+                if (!currentLiteral.empty()) {
+                    auto litNode = std::make_unique<LiteralExpr>(currentLiteral);
+                    if (rootExpr == nullptr) {
+                        rootExpr = std::move(litNode);
+                    } else {
+                        rootExpr = std::make_unique<BinaryExpr>(
+                            std::move(rootExpr), 
+                            Token{TOKEN_PLUS, "+"}, 
+                            std::move(litNode)
+                        );
+                    }
+                }
+
+                if (rootExpr == nullptr) {
+                    return std::make_unique<LiteralExpr>("");
+                }
+
+                return rootExpr;
+            }
             if (errTokens[current].type == TOKEN_NUMBER || errTokens[current].type == TOKEN_STRING) {
                 return std::make_unique<LiteralExpr>(errTokens[current++].lexeme);
             }
             
+            if (errTokens[current].type == TOKEN_CHAR) {
+                char cVal = errTokens[current].lexeme[0];
+                current++;
+                return std::make_unique<LiteralExpr>(cVal);
+            }
+            
             if (errTokens[current].type == TOKEN_IDENTIFIER) {
+                std::unique_ptr<Expr> expr = nullptr;
+                
                 if (peek(1).type == TOKEN_LPAREN) {
                     std::string funcName = errTokens[current].lexeme;
                     current += 2;
@@ -76,9 +160,22 @@ class Compiler{
                         if (errTokens[current].type == TOKEN_COMMA) current++;
                     }
                     if (!isAtEnd()) current++;
-                    return std::make_unique<CallExpr>(funcName, std::move(callArgs));
+                    expr = std::make_unique<CallExpr>(funcName, std::move(callArgs));
+                } else {
+                    expr = std::make_unique<VariableExpr>(errTokens[current++].lexeme);
                 }
-                return std::make_unique<VariableExpr>(errTokens[current++].lexeme);
+
+                while (!isAtEnd() && errTokens[current].type == TOKEN_LBRACKET) {
+                    current++;
+                    auto indexExpr = expression();
+                    if (errTokens[current].type != TOKEN_RBRACKET) {
+                        throwError("Expected ']' after string index", errors::syntaxError, true, "Syntax Error");
+                    }
+                    current++;
+                    expr = std::make_unique<IndexExpr>(std::move(expr), std::move(indexExpr));
+                }
+
+                return expr;
             }
 
             if (errTokens[current].type == TOKEN_LPAREN) {
@@ -140,6 +237,27 @@ class Compiler{
         }
 
         std::unique_ptr<Expr> expression() {
+            if (errTokens[current].type == TOKEN_LOADLIB) {
+                current++;
+                if (errTokens[current].type != TOKEN_LPAREN) {
+                    throwError("Expected '(' after loadLibrary keyword", errors::syntaxError, true, "Syntax Error");
+                }
+                current++;
+                
+                if (errTokens[current].type != TOKEN_STRING) {
+                    throwError("Expected static string argument in loadLibrary()", errors::syntaxError, true, "Syntax Error");
+                }
+                std::string libPath = errTokens[current].lexeme;
+                current++;
+                
+                if (errTokens[current].type != TOKEN_RPAREN) {
+                    throwError("Expected ')' matching loadLibrary function opening bracket", errors::syntaxError, true, "Syntax Error");
+                }
+                current++;
+                
+                return std::make_unique<LoadLibExpr>(libPath);
+            }
+            
             if (current + 1 < errTokens.size() && errTokens[current].type == TOKEN_IDENTIFIER && errTokens[current + 1].type == TOKEN_EQUALS && errTokens[current + 2].type != TOKEN_EQUALS) {
                 std::string name = errTokens[current].lexeme;
                 current += 2;
@@ -150,6 +268,12 @@ class Compiler{
         }
         DataType compileExpression(const std::unique_ptr<Expr>& node) {
             if (auto literal = dynamic_cast<LiteralExpr*>(node.get())) {
+                
+                if (std::holds_alternative<char>(literal->value)) {
+                    emitInstruction(OP_PUSH, literal->value);
+                    return DataType::CHAR;
+                }
+
                 std::string valStr = valueToString(literal->value);
                 
                 bool isNumeric = !valStr.empty() && valStr.find_first_not_of("-0123456789.") == std::string::npos;
@@ -168,9 +292,39 @@ class Compiler{
                     return DataType::STRING;
                 }
             }
+            else if (auto indexExpr = dynamic_cast<IndexExpr*>(node.get())) {
+                DataType objType = compileExpression(indexExpr->object);
+                DataType idxType = compileExpression(indexExpr->index);
+                
+                if (objType != DataType::STRING) {
+                    throwError("Only strings can be indexed.", errors::typeError, false, "Type Error");
+                }
+                if (idxType != DataType::INT) {
+                    throwError("Index must be an integer.", errors::typeError, false, "Type Error");
+                }
+                
+                emitByte(OP_INDEX);
+                return DataType::CHAR;
+            }
             else if (auto var = dynamic_cast<VariableExpr*>(node.get())) {
-                if (functionTable.contains(var->name)) {
-                    throwError("Cannot use function '" + var->name + "' as a variable. Did you mean " + var->name + "()?", -1);
+                std::string varName = var->name;
+
+                bool exists = (localSymbolTable.find(varName) != localSymbolTable.end()) || 
+                            (symbolTable.find(varName) != symbolTable.end());
+
+                if (!exists) {
+                    std::vector<std::string> availableNames;
+                    for (const auto& [name, _] : localSymbolTable) availableNames.push_back(name);
+                    for (const auto& [name, _] : symbolTable) availableNames.push_back(name);
+
+                    std::string suggestion = nearestString(availableNames, varName);
+                    
+                    std::string errorMsg = "Undefined variable '" + varName + "'";
+                    if (!suggestion.empty()) {
+                        errorMsg += ". Did you mean '" + suggestion + "'?";
+                    }
+
+                    throwError(errorMsg, errors::undefinedError, true, "Name Error");
                 }
                 if (isCompilingFunction && localSymbolTable.contains(var->name)) {
                     emitInstruction(OP_LOAD_LOCAL, localSymbolTable[var->name]);
@@ -186,6 +340,19 @@ class Compiler{
                     return symbolTable[var->name].type;
                 }
                 throwError("Undeclared variable: " + var->name, -1);
+            }
+            else if (auto ll = dynamic_cast<LoadLibExpr*>(node.get())){
+                std::string resolvedLibPath = ll->path;
+                if (!currentSourceDir.empty() && ll->path.find('/') == std::string::npos) {
+                    resolvedLibPath = currentSourceDir + "/" + ll->path;
+                }
+                registerNativeLibrary(ll->path, resolvedLibPath);
+                
+                int currentLibId = nextLibraryId++;
+                loadedLibraries[currentLibId] = ll->path;
+                
+                emitInstruction(OP_PUSH, currentLibId);
+                return DataType::INT;
             }
             else if (auto assign = dynamic_cast<AssignExpr*>(node.get())) {
                 DataType rhsType = compileExpression(assign->value);
@@ -329,6 +496,24 @@ class Compiler{
                     tokens.push_back({TOKEN_STRING, id});
                     continue;
                 }
+                if (c == '\''){
+                    i++;
+                    std::string id;
+                    if (src[i] != '\''){
+                        if (src[i+1] != '\''){
+                            throwError("A char can only have one character", errors::syntaxError, true, "Syntax Error");
+                        }
+                        id = std::string(1, src[i]);
+                        tokens.push_back({TOKEN_CHAR, id});
+                        i+=2;
+                    }
+                    else
+                    {
+                        tokens.push_back({TOKEN_CHAR, stringify(defaultValueOfType(DataType::CHAR))});
+                        i++;
+                    }
+                    continue;
+                }
                 if (isspace(c)) {
                     i++;
                     continue;
@@ -397,25 +582,33 @@ class Compiler{
 
                 i++;
             }
-            for (int i = 0; i < tokens.size(); i++){
+            for (size_t i = 0; i < tokens.size(); i++){
                 if (tokens[i].type == TOKEN_IDENTIFIER){
-                if (tokens[i].lexeme == "print"){ tokens[i].type = TOKEN_PRINT; }
-                if (tokens[i].lexeme == "extern"){ tokens[i].type = TOKEN_EXTERN; }
-                if (tokens[i].lexeme == "import"){ tokens[i].type = TOKEN_IMPORT; }
-                if (tokens[i].lexeme == "lib"){ tokens[i].type = TOKEN_LIB; }
-                if (tokens[i].lexeme == "int"){ tokens[i].type = TOKEN_INT; }
-                if (tokens[i].lexeme == "string"){ tokens[i].type = TOKEN_STRING_T; }
-                if (tokens[i].lexeme == "bool"){ tokens[i].type = TOKEN_BOOL; }
-                if (tokens[i].lexeme == "float"){ tokens[i].type = TOKEN_FLOAT; }
-                if (tokens[i].lexeme == "char"){ tokens[i].type = TOKEN_CHAR; }
-                if (tokens[i].lexeme == "if"){ tokens[i].type = TOKEN_IF; }
-                if (tokens[i].lexeme == "else"){ tokens[i].type = TOKEN_ELSE; }
-                if (tokens[i].lexeme == "while"){ tokens[i].type = TOKEN_WHILE; }
-                if (tokens[i].lexeme == "exit"){ tokens[i].type = TOKEN_EXIT; }
-                if (tokens[i].lexeme == "const"){ tokens[i].type = TOKEN_CONST; }
-                if (tokens[i].lexeme == "return"){ tokens[i].type = TOKEN_RETURN; }
-                if (tokens[i].lexeme == "throw"){ tokens[i].type = TOKEN_THROW; }
-                if (tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i+1); i++; }
+                    if (tokens[i].lexeme == "print"){ tokens[i].type = TOKEN_PRINT; }
+                    if (tokens[i].lexeme == "extern"){ tokens[i].type = TOKEN_EXTERN; }
+                    if (tokens[i].lexeme == "import"){ tokens[i].type = TOKEN_IMPORT; }
+                    if (tokens[i].lexeme == "lib"){ tokens[i].type = TOKEN_LIB; }
+                    if (tokens[i].lexeme == "int"){ tokens[i].type = TOKEN_INT; }
+                    if (tokens[i].lexeme == "string"){ tokens[i].type = TOKEN_STRING_T; }
+                    if (tokens[i].lexeme == "bool"){ tokens[i].type = TOKEN_BOOL; }
+                    if (tokens[i].lexeme == "float"){ tokens[i].type = TOKEN_FLOAT; }
+                    if (tokens[i].lexeme == "char"){ tokens[i].type = TOKEN_CHAR_T; }
+                    if (tokens[i].lexeme == "if"){ tokens[i].type = TOKEN_IF; }
+                    if (tokens[i].lexeme == "else"){ tokens[i].type = TOKEN_ELSE; }
+                    if (tokens[i].lexeme == "while"){ tokens[i].type = TOKEN_WHILE; }
+                    if (tokens[i].lexeme == "exit"){ tokens[i].type = TOKEN_EXIT; }
+                    if (tokens[i].lexeme == "const"){ tokens[i].type = TOKEN_CONST; }
+                    if (tokens[i].lexeme == "return"){ tokens[i].type = TOKEN_RETURN; }
+                    if (tokens[i].lexeme == "throw"){ tokens[i].type = TOKEN_THROW; }
+                    if (tokens[i].lexeme == "loadLibrary"){ tokens[i].type = TOKEN_LOADLIB; }
+                    if (tokens[i].lexeme == "true"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(1); }
+                    if (tokens[i].lexeme == "false"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(0); }
+                    if (tokens[i].lexeme == "f" && i + 1 < tokens.size() && tokens[i+1].type == TOKEN_STRING){ tokens[i].type = TOKEN_F_STR; } 
+                }
+
+                if (i + 1 < tokens.size() && tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { 
+                    tokens[i].type = TOKEN_NOT_EQUALS; 
+                    tokens.erase(tokens.begin() + i + 1); 
                 }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
@@ -434,28 +627,10 @@ class Compiler{
                 if (tokens[current].type == TOKEN_CONST){
                     isConstDecl=true;
                     current++;
-                }
-                if (tokens[current].type == TOKEN_LIB) {
-                    current++;
-                    if (tokens[current].type != TOKEN_IDENTIFIER) throwError("Expected library handle after 'lib'", -1);
-                    std::string libHandle = tokens[current].lexeme;
-                    current++;
-                    if (tokens[current].type != TOKEN_EQUALS) throwError("Expected '=' after library handle", -1);
-                    current++;
-                    if (tokens[current].type != TOKEN_IDENTIFIER || tokens[current].lexeme != "loadLibrary") {
-                        throwError("Expected loadLibrary() after 'lib <handle> ='",-1);
+                    if (!tokenIsDecl(tokens[current].type)){
+                        throwError(std::string("Stray 'const' keyword met, expected identifier (Requested: ") + enum_to_string(TOKEN_IDENTIFIER) + ", but got: " + enum_to_string(tokens[current].type)
+                        ,errors::strayKeywordError, true , "Stray Keyword Error");
                     }
-                    current++;
-                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after loadLibrary", -1);
-                    current++;
-                    if (tokens[current].type != TOKEN_STRING) throwError("Expected string library name inside loadLibrary()", -1);
-                    std::string libName = tokens[current].lexeme;
-                    current++;
-                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after loadLibrary argument", -1);
-                    current++;
-                    if (tokens[current].type == TOKEN_SEMICOLON) current++;
-                    blockStatements.push_back(std::make_unique<LibStmt>(libHandle, libName));
-                    continue;
                 }
                 if (tokens[current].type == TOKEN_IMPORT) {
                     current++;
@@ -468,40 +643,46 @@ class Compiler{
                 }
                 if (tokens[current].type == TOKEN_EXTERN) {
                     current++;
-                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after extern", -1);
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after extern", errors::syntaxError, true, "Syntax Error");
                     current++;
-                    if (tokens[current].type != TOKEN_IDENTIFIER && tokens[current].type != TOKEN_STRING) throwError("Expected library handle or string inside extern()", -1);
+                    if (tokens[current].type != TOKEN_IDENTIFIER && tokens[current].type != TOKEN_NUMBER) throwError("Expected library id", errors::syntaxError, true, "Syntax Error");
+                    
                     std::string libHandle = tokens[current].lexeme;
                     current++;
-                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after extern library handle", -1);
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' after extern library handle", errors::syntaxError, true, "Syntax Error");
                     current++;
-                    if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR && tokens[current].type != TOKEN_BOOL) {
-                        throwError("Expected return type after extern()", -1);
+                    
+                    if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR_T && tokens[current].type != TOKEN_BOOL) {
+                        throwError("Expected return type after extern()", errors::syntaxError, true, "Syntax Error");
                     }
                     DataType returnType;
                     if (tokens[current].type == TOKEN_INT) returnType = DataType::INT;
                     else if (tokens[current].type == TOKEN_FLOAT) returnType = DataType::FLOAT;
                     else if (tokens[current].type == TOKEN_BOOL) returnType = DataType::BOOL;
-                    else if (tokens[current].type == TOKEN_CHAR) returnType = DataType::CHAR;
+                    else if (tokens[current].type == TOKEN_CHAR_T) returnType = DataType::CHAR;
                     else returnType = DataType::STRING;
                     current++;
-                    if (tokens[current].type != TOKEN_IDENTIFIER) throwError("Expected extern function name", -1);
+                    
+                    if (tokens[current].type != TOKEN_IDENTIFIER) throwError("Expected extern function name", errors::syntaxError, true, "Syntax Error");
                     std::string funcName = tokens[current].lexeme;
                     current++;
-                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after extern function name", -1);
+                    
+                    if (tokens[current].type != TOKEN_LPAREN) throwError("Expected '(' after extern function name", errors::syntaxError, true, "Syntax Error");
                     current++;
+                    
                     std::vector<Param> params;
                     while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
-                        if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR && tokens[current].type != TOKEN_BOOL) {
-                            throwError("Expected parameter type in extern declaration", -1);
+                        if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR_T && tokens[current].type != TOKEN_BOOL) {
+                            throwError("Expected parameter type in extern declaration", errors::syntaxError, true, "Syntax Error");
                         }
                         DataType pType;
                         if (tokens[current].type == TOKEN_INT) pType = DataType::INT;
                         else if (tokens[current].type == TOKEN_FLOAT) pType = DataType::FLOAT;
                         else if (tokens[current].type == TOKEN_BOOL) pType = DataType::BOOL;
-                        else if (tokens[current].type == TOKEN_CHAR) pType = DataType::CHAR;
+                        else if (tokens[current].type == TOKEN_CHAR_T) pType = DataType::CHAR;
                         else pType = DataType::STRING;
                         current++;
+                        
                         std::string paramName = "arg" + std::to_string(params.size());
                         if (tokens[current].type == TOKEN_IDENTIFIER) {
                             paramName = tokens[current].lexeme;
@@ -510,21 +691,30 @@ class Compiler{
                         params.push_back({pType, paramName});
                         if (tokens[current].type == TOKEN_COMMA) current++;
                     }
-                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' at end of extern parameter list", -1);
+                    if (tokens[current].type != TOKEN_RPAREN) throwError("Expected ')' at end of extern parameter list", errors::syntaxError, true, "Syntax Error");
                     current++;
                     if (tokens[current].type == TOKEN_SEMICOLON) current++;
+                    
                     blockStatements.push_back(std::make_unique<ExternStmt>(libHandle, funcName, returnType, params));
                     continue;
                 }
-                if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT || tokens[current].type == TOKEN_STRING_T || tokens[current].type == TOKEN_CHAR) {
+                if (tokens[current].type == TOKEN_INT || tokens[current].type == TOKEN_FLOAT ||
+                     tokens[current].type == TOKEN_STRING_T || tokens[current].type == TOKEN_CHAR_T) {
                     DataType type;
                     if (tokens[current].type == TOKEN_INT) type = DataType::INT;
                     else if (tokens[current].type == TOKEN_FLOAT) type = DataType::FLOAT;
+                    else if (tokens[current].type == TOKEN_CHAR_T) type = DataType::CHAR;
                     else type = DataType::STRING;
                     
+                    if (peek(1).type == TOKEN_NUMBER){
+                        throwError("Variable cannot start with a number", errors::syntaxError, true, "Syntax Error");
+                    }
                     if (peek(1).type == TOKEN_IDENTIFIER && peek(2).type == TOKEN_LPAREN) {
                         current++;
                         std::string funcName = tokens[current].lexeme;
+                        if (isdigit(funcName[0])){
+                            throwError("Variable cannot start with a number", errors::syntaxError, true, "Syntax Error");
+                        }
                         current += 2;
 
                         std::vector<Parameter> parameters;
@@ -732,6 +922,7 @@ class Compiler{
         std::vector<std::unique_ptr<Stmt>> makeAST(std::vector<Token>& tokens) {
             if (useDevEnv) std::cout << "AST\n";
             errTokens = tokens;
+            globTokens = &tokens;
             current = 0; 
             return parseBlock(tokens); 
         }
@@ -770,6 +961,10 @@ class Compiler{
                     newSymbol.constValue = compileTimeValue;
                     symbolTable[varDecl->name] = newSymbol;
 
+                    if (varDecl->initializer && dynamic_cast<LoadLibExpr*>(varDecl->initializer.get())) {
+                                            newSymbol.constValue = nextLibraryId - 1;
+                                            newSymbol.isConst = true; 
+                    }
                     if (newSymbol.index >= indexTypes.size()) {
                         indexTypes.resize(newSymbol.index + 1);
                     }
@@ -779,13 +974,6 @@ class Compiler{
                         emitInstruction(OP_STORE, getVariableIndex(varDecl->name, varDecl->type));
                     }
                 }
-            }
-            else if (auto libDecl = dynamic_cast<LibStmt*>(node.get())) {
-                std::string resolvedLibPath = libDecl->libPath;
-                if (!currentSourceDir.empty() && libDecl->libPath.find('/') == std::string::npos) {
-                    resolvedLibPath = currentSourceDir + "/" + libDecl->libPath;
-                }
-                registerNativeLibrary(libDecl->handle, resolvedLibPath);
             }
             else if (auto importDecl = dynamic_cast<ImportStmt*>(node.get())) {
                 emitInstruction(OP_IMPORT, importDecl->path);
@@ -797,8 +985,27 @@ class Compiler{
                 function.isVoid = (externDecl->returnType == DataType::VOID);
                 function.isNative = true;
                 
-                function.nativeHandler = [libHandle = externDecl->libHandle,
-                                          symbol = externDecl->funcName](std::vector<Value> args) -> Value {
+                std::string targetLibPath = "";
+                
+                if (symbolTable.contains(externDecl->libHandle)) {
+                    int libId = valueToInt(symbolTable[externDecl->libHandle].constValue);
+                    if (loadedLibraries.contains(libId)) {
+                        targetLibPath = loadedLibraries[libId];
+                    } else {
+                        throwError("Invalid library ID referenced by '" + externDecl->libHandle + "'", -1);
+                    }
+                } else if (isdigit(externDecl->libHandle[0])) {
+                    int libId = std::stoi(externDecl->libHandle);
+                    if (loadedLibraries.contains(libId)) {
+                        targetLibPath = loadedLibraries[libId];
+                    } else {
+                        throwError("Invalid library ID: " + externDecl->libHandle, -1);
+                    }
+                } else {
+                    throwError("Undefined library variable '" + externDecl->libHandle + "'", -1);
+                }
+                function.nativeHandler = [libHandle = targetLibPath,
+                                        symbol = externDecl->funcName](std::vector<Value> args) -> Value {
                     void* sym = resolveNativeSymbol(libHandle, symbol);
                     if (!sym) {
                         throwError("Failed to resolve symbol '" + symbol + "'", -1);
@@ -1020,11 +1227,33 @@ private:
     };
     std::vector<CallFrame> frames;
     void handleEscapes(std::string& str) {
-        size_t pos = 0;
-        while ((pos = str.find("\\n", pos)) != std::string::npos) {
-            str.replace(pos, 2, "\n");
-            pos += 1;
+        std::string result;
+        result.reserve(str.size());
+
+        for (size_t i = 0; i < str.size(); ++i) {
+            if (str[i] == '\\' && i + 1 < str.size()) {
+                if (str[i + 1] == 'x' && i + 3 < str.size()) {
+                    if (str[i + 2] == '1' && str[i + 3] == 'B') {
+                        result += '\x1B'; 
+                        i += 3;
+                    } else {
+                        result += str[i];
+                    }
+                } else {
+                    switch (str[i + 1]) {
+                        case 'n':  result += '\n'; break;
+                        case 't':  result += '\t'; break;
+                        case 'r':  result += '\r'; break;
+                        case '\\': result += '\\'; break;
+                        default:   result += str[i + 1]; break;
+                    }
+                    i++;
+                }
+            } else {
+                result += str[i];
+            }
         }
+        str = result;
     }
     std::vector<Value> stack;
     int pc = 0;
@@ -1302,13 +1531,27 @@ public:
                     return errCode;
                     break;
                 }
+                case OP_INDEX: {
+                    Value indexVal = pop();
+                    Value objVal = pop();
+                    
+                    int idx = valueToInt(indexVal);
+                    std::string str = valueToString(objVal);
+                    
+                    if (idx < 0 || idx > str.length()) {
+                        throwError("String index out of bounds", -1, true, "Runtime Error");
+                    }
+                    
+                    push(str[idx]);
+                    break;
+                }
                 case OP_HALT:{
                     const Value out = pop();
                     if (!endsWithNewline) std::print("\n");
                     return valueToInt(out);
                 }
                 default:
-                    throwError("Unknown OpCode met during runtime", -1, true, "OpCode Error");
+                    throwError("Unknown OpCode met during runtime\nRecompiling the program might fix the issue", -1, true, "OpCode Error");
                     return -INT32_MAX;
             }
             pc++;

@@ -1,13 +1,14 @@
 #
+    Last compliance check with ISCR was on 13.06.2026.
     Written by @deadpitixd
-    
-    Last reviewed for ISI A4
-    Last edit on 23 May 2026
 
-    This library is for file handling
+    Ported from ISI_Colors in 'Other.hpp'
+
+    Reviewed on ISI B1 Beta
+
+    Small file handling library.
 #
-
-lib l = loadLibrary("fileio");
+int l = loadLibrary("fileio");
 
 #checks if the file at path n exists#
 extern(l) int exists(string);

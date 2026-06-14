@@ -1,3 +1,14 @@
+#
+    Last compliance check with ISCR was on 13.06.2026.
+    Written by @deadpitixd
+
+    Ported from ISI_Colors in 'Other.hpp'
+
+    Reviewed on ISI B1 Beta.
+
+    Small math library, UNFINISHED. 
+#
+
 int mod(int a, int b){
     if (b == 0){
         return 0;

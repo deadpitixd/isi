@@ -1,6 +1,15 @@
+#
+    Last compliance check with ISCR was on 13.06.2026.
+    Written by @deadpitixd
+
+    Ported from ISI_Colors in 'Other.hpp'
+
+    Reviewed on ISI B1 Beta.
+
+    Standard library for most useful things. 
+#
+
 const int NULL = -2147483647;
-const int true = 1;
-const int false = 0;
 const int doTest = 0;
 const float pi = 3.141592653589
 
@@ -15,7 +24,7 @@ int isNull(float in){
 }
 
 #standard library#
-lib std = loadLibrary("standard");
+const int std = loadLibrary("standard");
 #basic string conversion#
 extern(std) int stringToInt(string);
 extern(std) int stringToFloat(string);
@@ -30,11 +39,9 @@ extern(std) string input();
 #
 
 #
-* letter n of string str,
-* THIS WILL BE REPLACED BY SQUARE BRACKETS []
-* WHEN chars WILL BE ADDED
+* deprecated
 #
-extern(std) string let(int, string);
+extern(std) char let(int, string);
 extern(std) int charToAscii(string);
 
 #Gets the type based on the input as a string#
@@ -49,7 +56,7 @@ string getLets(string in, int from, int to){
     if (to > strsize){return NULL}
     if (from > strsize){return NULL}
     if (from < 0){return NULL}
-    if (from == to){return let(from, in)}
+    if (from == to){string c = let(from, in);return c;}
     #the starting point#
     int i = from;
     string out;

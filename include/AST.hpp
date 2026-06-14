@@ -38,6 +38,18 @@ struct AssignExpr : public Expr {
         : name(std::move(n)), value(std::move(v)) {}
 };
 
+struct IndexExpr : public Expr {
+    std::unique_ptr<Expr> object;
+    std::unique_ptr<Expr> index;
+    IndexExpr(std::unique_ptr<Expr> obj, std::unique_ptr<Expr> idx)
+        : object(std::move(obj)), index(std::move(idx)) {}
+};
+
+struct LoadLibExpr : public Expr {
+    std::string path;
+    LoadLibExpr(std::string fname) : path(std::move(fname)) {}
+};
+
 struct ExpressionStmt : public Stmt {
     std::unique_ptr<Expr> expression;
     ExpressionStmt(std::unique_ptr<Expr> e) : expression(std::move(e)) {}
