@@ -444,13 +444,6 @@ inline bool isNumeric(const Value& val) {
     return std::holds_alternative<int>(val) || std::holds_alternative<double>(val);
 }
 
-bool compatibleTypes(DataType a, DataType b){
-    if (a == b) return true;
-    if (a == DataType::INT && (b == DataType::FLOAT || b == DataType::STRING)) { return false; }
-    if (a == DataType::STRING && (b == DataType::FLOAT || b == DataType::INT)) { return true; }
-    return false;
-}
-
 bool isTypeCompatible(DataType expected, DataType given) {
     if (expected == given) return true;
     if (expected == DataType::FLOAT && given == DataType::INT) return true;

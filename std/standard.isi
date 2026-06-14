@@ -56,7 +56,7 @@ string getLets(string in, int from, int to){
     if (to > strsize){return NULL}
     if (from > strsize){return NULL}
     if (from < 0){return NULL}
-    if (from == to){string c = let(from, in);return c;}
+    if (from == to){return let(from, in);}
     #the starting point#
     int i = from;
     string out;

@@ -398,7 +398,7 @@ class Compiler{
                     DataType argType = compileExpression(call->arguments[i]); 
                     DataType paramType = func.params[i].type;
                     
-                    if (!compatibleTypes(paramType, argType)) {
+                    if (!isTypeCompatible(paramType, argType)) {
                         throwError("Type mismatch in function '" + call->callee + "' at argument " + std::to_string(i + 1) + 
                                    ": Expected '" + std::string(typeToString(paramType)) + 
                                    "', but got '" + std::string(typeToString(argType)) + "'", -1);
@@ -1105,7 +1105,7 @@ class Compiler{
                 if (retStmt->value) {
                     DataType actualReturnType = compileExpression(retStmt->value);
                     
-                    if (!compatibleTypes(currentFunctionReturnType, actualReturnType)) {
+                    if (!isTypeCompatible(currentFunctionReturnType, actualReturnType)) {
                         throwError("Type mismatch: Function expects to return '" + 
                                    std::string(typeToString(currentFunctionReturnType)) + 
                                    "', but expression returns '" + 
