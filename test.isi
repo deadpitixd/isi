@@ -1,3 +1,2 @@
-string x;
-x = 3 * "Hello ";
-print(x);
+int x = 5;
+print(x,"\n");

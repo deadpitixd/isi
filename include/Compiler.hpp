@@ -1390,7 +1390,16 @@ public:
                     if (std::holds_alternative<double>(a) || std::holds_alternative<double>(b)) {
                         double result = (double)(valueToFloat(a) - valueToFloat(b));
                         push(result);
-                    } else {
+                    } else if (std::holds_alternative<std::string>(a) || std::holds_alternative<std::string>(b))
+                    {
+                        std::string out = valueToString(a);
+                        size_t pos = out.find(valueToString(b));
+                        if (pos != std::string::npos) {
+                            out.erase(pos, valueToString(b).length());
+                        }
+                        push(out);
+                    } 
+                    else {
                         int result = valueToInt(a) - valueToInt(b);
                         push(result);
                     }
@@ -1425,9 +1434,14 @@ public:
                         }
                         push(by);
                     } 
-                    else {
+                    else if (std::holds_alternative<int>(a) || std::holds_alternative<int>(b))
+                    {
                         int result = valueToInt(a) * valueToInt(b);
                         push(result);
+                    }
+                    else {
+                        throwError((std::string)"Cannot multiply types " + enum_to_string(valueToType(a)) + ", " + enum_to_string(valueToType(b)),
+                        errors::syntaxError, 1, "Syntax Error");
                     }
                     break;
                 }
