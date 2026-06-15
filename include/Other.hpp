@@ -95,6 +95,9 @@ enum isiTokenType : uint{
     TOKEN_EQUALS,
     TOKEN_NOT_EQUALS,
 
+    TOKEN_INCREMENT,
+    TOKEN_DECREMENT,
+
     // symbols
     TOKEN_LPAREN,
     TOKEN_RPAREN,

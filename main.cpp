@@ -19,6 +19,7 @@ std::vector<std::pair<std::string,std::string>> options;
 #include <filesystem>
 #include <Compiler.hpp>
 #include <Optimizer.hpp>
+#include <cstring>
 // some stuff for some easier thingies
 #include <vapor/vapor.h>
 
@@ -171,56 +172,68 @@ int main(int argc, char* argv[]){
 
     VirtualMachine vm;
 
-    // upgrade later
     if (compiledBin) {
-        char *buf = static_cast<char*>(malloc(vp_getFileSize(fileName.c_str()) + 1));
-        size_t size = vp_readfileS(buf, fileName.c_str(), vp_getFileSize(fileName.c_str()));
-        buf[size] = '\0';
-        std::string code = buf;
-        free(buf);
+        std::ifstream in(fileName, std::ios::binary);
+        if (!in) {
+            throwError("Failed to open binary file", errors::uncaughtException);
+        }
+
+        char magic[4];
+        in.read(magic, 4);
+        if (std::strncmp(magic, "ISIC", 4) != 0) {
+            throwError("Invalid or corrupted ISIC binary file", errors::uncaughtException);
+        }
+
+        std::vector<DataType> loadedTypes;
+        size_t numTypes;
+        in.read(reinterpret_cast<char*>(&numTypes), sizeof(numTypes));
+        for (size_t i = 0; i < numTypes; i++) {
+            int typeVal;
+            in.read(reinterpret_cast<char*>(&typeVal), sizeof(typeVal));
+            loadedTypes.push_back(static_cast<DataType>(typeVal));
+        }
 
         std::vector<Instruction> instr;
-        std::vector<DataType> loadedTypes;
-        std::string currentLine;
-        std::stringstream ss(code);
+        size_t numInstr;
+        in.read(reinterpret_cast<char*>(&numInstr), sizeof(numInstr));
+        for (size_t i = 0; i < numInstr; i++) {
+            uint32_t opInt;
+            in.read(reinterpret_cast<char*>(&opInt), sizeof(opInt));
+            OpCode op = static_cast<OpCode>(opInt);
 
-        while (std::getline(ss, currentLine, ';')) {
-            currentLine.erase(std::remove(currentLine.begin(), currentLine.end(), '\n'), currentLine.end());
-            if (currentLine.empty()) continue;
+            uint8_t tag;
+            in.read(reinterpret_cast<char*>(&tag), sizeof(tag));
 
-            if (currentLine.starts_with("TYPES|")) {
-                std::string typesPart = currentLine.substr(6);
-                std::stringstream tss(typesPart);
-                std::string typeVal;
-                while (std::getline(tss, typeVal, ',')) {
-                    if (!typeVal.empty()) {
-                        loadedTypes.push_back(static_cast<DataType>(std::stoi(typeVal)));
-                    }
-                }
-                continue;
-            }
-            if (1 and 1){}
-
-            size_t pipePos = currentLine.find('|');
-            if (pipePos != std::string::npos) {
-                std::string opPart = currentLine.substr(0, pipePos);
-                std::string valPart = currentLine.substr(pipePos + 1);
- 
-                OpCode op = static_cast<OpCode>(std::stoi(opPart));
-                Value val;
-
-                if (!valPart.empty() && (std::isdigit(valPart[0]) || valPart[0] == '-')) {
-                    if (valPart.find('.') != std::string::npos) val = std::stod(valPart);
-                    else val = std::stoi(valPart);
-                } else {
-                    val = valPart;
-                }
-                instr.push_back({op, val});
+            Value val;
+            if (tag == 1) {
+                int v;
+                in.read(reinterpret_cast<char*>(&v), sizeof(v));
+                val = v;
+            } else if (tag == 2) {
+                double v;
+                in.read(reinterpret_cast<char*>(&v), sizeof(v));
+                val = v;
+            } else if (tag == 3) {
+                bool v;
+                in.read(reinterpret_cast<char*>(&v), sizeof(v));
+                val = v;
+            } else if (tag == 4) {
+                char v;
+                in.read(reinterpret_cast<char*>(&v), sizeof(v));
+                val = v;
+            } else if (tag == 5) {
+                size_t len;
+                in.read(reinterpret_cast<char*>(&len), sizeof(len));
+                std::string v(len, '\0');
+                in.read(v.data(), len);
+                val = v;
             } else {
-                OpCode op = static_cast<OpCode>(std::stoi(currentLine));
-                instr.push_back({op, {}});
+                val = std::monostate{};
             }
+
+            instr.push_back({op, val});
         }
+        in.close();
 
         if (debug) {
             for (const auto& i : instr) {
@@ -229,7 +242,7 @@ int main(int argc, char* argv[]){
         }
         
         int errc = vm.run(instr, loadedTypes);
-        if (debug || flags.contains("--output")) std::print("Program executed with code '{}'.\n", errc);
+        if (debug || flags.contains("--out")) std::print("{}Program executed with code '{}{}{}'.{}\n", ISI_Color::cyan, ISI_Color::green , errc, ISI_Color::cyan, ISI_Color::reset);
         return errc;
     }
     
@@ -270,29 +283,58 @@ int main(int argc, char* argv[]){
     }
 
     if (flags.contains("--compile")){
-        //throwError("--compile parameter doesn't work with this ISI.", -1, false, "Information");
-        const std::string nFileName = (fileName + "c").c_str();
-        vp_RWwritefile(nFileName.c_str(), "");
-        
-        std::string header = "TYPES|";
+        const std::string nFileName = fileName + "c";
+        std::ofstream out(nFileName, std::ios::binary);
+        if (!out) {
+            throwError("Failed to open binary file for writing", errors::uncaughtException);
+        }
+
+        out.write("ISIC", 4);
+
         const auto& types = compiler.getIndexTypes();
-        for (size_t i = 0; i < types.size(); i++) {
-            header += std::to_string(static_cast<int>(types[i]));
-            if (i + 1 < types.size()) {
-                header += ",";
+        size_t numTypes = types.size();
+        out.write(reinterpret_cast<const char*>(&numTypes), sizeof(numTypes));
+        for (DataType t : types) {
+            int typeVal = static_cast<int>(t);
+            out.write(reinterpret_cast<const char*>(&typeVal), sizeof(typeVal));
+        }
+
+        size_t numInstr = compiled.size();
+        out.write(reinterpret_cast<const char*>(&numInstr), sizeof(numInstr));
+        for (const Instruction& instr : compiled) {
+            uint32_t op = static_cast<uint32_t>(instr.op);
+            out.write(reinterpret_cast<const char*>(&op), sizeof(op));
+
+            uint8_t tag = 0;
+            if (std::holds_alternative<int>(instr.value)) tag = 1;
+            else if (std::holds_alternative<double>(instr.value)) tag = 2;
+            else if (std::holds_alternative<bool>(instr.value)) tag = 3;
+            else if (std::holds_alternative<char>(instr.value)) tag = 4;
+            else if (std::holds_alternative<std::string>(instr.value)) tag = 5;
+
+            out.write(reinterpret_cast<const char*>(&tag), sizeof(tag));
+
+            if (tag == 1) {
+                int v = std::get<int>(instr.value);
+                out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+            } else if (tag == 2) {
+                double v = std::get<double>(instr.value);
+                out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+            } else if (tag == 3) {
+                bool v = std::get<bool>(instr.value);
+                out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+            } else if (tag == 4) {
+                char v = std::get<char>(instr.value);
+                out.write(reinterpret_cast<const char*>(&v), sizeof(v));
+            } else if (tag == 5) {
+                const std::string& v = std::get<std::string>(instr.value);
+                size_t len = v.size();
+                out.write(reinterpret_cast<const char*>(&len), sizeof(len));
+                out.write(v.data(), len);
             }
         }
-        header += ";\n";
-        vp_Awritefile(nFileName.c_str(), header.c_str());
-
-        for (Instruction i : compiled){
-            if (valueToString(i.value).empty())
-                vp_Awritefile(nFileName.c_str(), (std::to_string((uint)i.op).c_str() + (std::string)";\n").c_str());
-            else
-                vp_Awritefile(nFileName.c_str(), (std::to_string((uint)i.op).c_str() + (std::string)"|" + valueToString(i.value) + ";\n").c_str());
-        }
+        out.close();
     }
-
     vm.setFunctions(compiler.getFunctionTable());
     int errc = vm.run(compiled, compiler.getIndexTypes());
     if (debug || flags.contains("--out")) std::print("{}Program executed with code '{}{}{}'.{}\n", ISI_Color::cyan, ISI_Color::green , errc, ISI_Color::cyan, ISI_Color::reset);

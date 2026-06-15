@@ -18,7 +18,6 @@ struct Symbol {
 class Compiler{
     private:
     DataType currentFunctionReturnType = DataType::INT;
-    std::map<std::string, Function> functionTable;
     bool isCompilingFunction = false;
     int nextLocalIndex = 0;
     std::map<std::string, int> localSymbolTable;
@@ -65,6 +64,7 @@ class Compiler{
     }
 
     public:
+        std::map<std::string, Function> functionTable;
         std::unique_ptr<Expr> primary() {
             if (errTokens[current].type == TOKEN_F_STR) {
                 current++;
@@ -606,10 +606,9 @@ class Compiler{
                     if (tokens[i].lexeme == "f" && i + 1 < tokens.size() && tokens[i+1].type == TOKEN_STRING){ tokens[i].type = TOKEN_F_STR; } 
                 }
 
-                if (i + 1 < tokens.size() && tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { 
-                    tokens[i].type = TOKEN_NOT_EQUALS; 
-                    tokens.erase(tokens.begin() + i + 1); 
-                }
+                if (i + 1 < tokens.size() && tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i + 1); }
+                if (i + 1 < tokens.size() && tokens[i].type == TOKEN_PLUS && tokens[i+1].type == TOKEN_PLUS) { tokens[i].type = TOKEN_INCREMENT; tokens.erase(tokens.begin() + i + 1); }
+                if (i + 1 < tokens.size() && tokens[i].type == TOKEN_MINUS && tokens[i+1].type == TOKEN_MINUS) { tokens[i].type = TOKEN_DECREMENT; tokens.erase(tokens.begin() + i + 1); }
             }
             tokens.push_back({TOKEN_EOF, "\0"});
             return tokens;
@@ -751,12 +750,11 @@ class Compiler{
                         blockStatements.push_back(std::make_unique<FunctionDeclStmt>(type, funcName, parameters, funcBody, false));
                         continue;
                     }
-                    
                     if (peek(1).type == TOKEN_IDENTIFIER) {
                         current++;
                         std::string varName = tokens[current].lexeme;
                         current++;
-                        
+
                         std::unique_ptr<Expr> initializer = nullptr;
                         if (tokens[current].type == TOKEN_EQUALS) {
                             current++;
@@ -769,6 +767,30 @@ class Compiler{
                         isConstDecl = false;
                         continue;
                     }
+                }
+                if (tokens[current].type == TOKEN_IDENTIFIER && tokens[current+1].type == TOKEN_INCREMENT
+                    || tokens[current+1].type == TOKEN_DECREMENT){
+                    std::string varName = tokens[current].lexeme;
+                    current++;
+                    const isiTokenType *tokType = &tokens[current].type;
+
+                    std::print("{}\n", enum_to_string(tokens[current].type));
+
+                    auto varNode = std::make_unique<VariableExpr>(varName);
+                    
+                    auto literalNode = std::make_unique<LiteralExpr>((Value)1);
+                    
+                    auto binexpr = std::make_unique<BinaryExpr>(
+                        std::move(varNode), 
+                        (*tokType) == TOKEN_INCREMENT ? Token{TOKEN_PLUS, "+"} : Token{TOKEN_MINUS, "-"}, 
+                        std::move(literalNode)
+                    );
+
+                    blockStatements.push_back(
+                        std::make_unique<ExpressionStmt>(
+                            std::make_unique<AssignExpr>(varName, std::move(binexpr))
+                        )
+                    );
                 }
                 if (tokens[current].type == TOKEN_IDENTIFIER && peek(1).type == TOKEN_EQUALS && peek(2).type != TOKEN_EQUALS) {
                     std::string name = tokens[current].lexeme;
