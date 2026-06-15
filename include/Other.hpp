@@ -95,6 +95,11 @@ enum isiTokenType : uint{
     TOKEN_EQUALS,
     TOKEN_NOT_EQUALS,
 
+    TOKEN_PLUS_E, // +=
+    TOKEN_MINUS_E,
+    TOKEN_MULT_E,
+    TOKEN_DIV_E,
+
     TOKEN_INCREMENT,
     TOKEN_DECREMENT,
 
@@ -133,7 +138,7 @@ enum isiTokenType : uint{
     TOKEN_EOF,
 
     // Formats
-    TOKEN_F_STR
+    TOKEN_V_STR // changed to a 'v' string (Variable String), since it doesn't support inline parsing
 
 };
 

@@ -66,11 +66,11 @@ class Compiler{
     public:
         std::map<std::string, Function> functionTable;
         std::unique_ptr<Expr> primary() {
-            if (errTokens[current].type == TOKEN_F_STR) {
+            if (errTokens[current].type == TOKEN_V_STR) {
                 current++;
                 
                 if (errTokens[current].type != TOKEN_STRING) {
-                    throwError("String expected after f string", errors::syntaxError, true, "Syntax Error");
+                    throwError("String expected after v string", errors::syntaxError, true, "Syntax Error");
                 }
 
                 std::string format = errTokens[current].lexeme;
@@ -412,12 +412,6 @@ class Compiler{
                 DataType leftType = compileExpression(binary->left);
                 DataType rightType = compileExpression(binary->right);
                 
-                if (binary->op.type != TOKEN_PLUS && binary->op.type != TOKEN_EQUALS && binary->op.type != TOKEN_NOT_EQUALS) {
-                    if ((leftType != DataType::INT && leftType != DataType::FLOAT) ||
-                        (rightType != DataType::INT && rightType != DataType::FLOAT)) {
-                        throwError("Math operators require numeric types.", -1, false, "Type Error");
-                    }
-                }
                 
                 switch (binary->op.type) {
                     case TOKEN_PLUS:  emitByte(OP_ADD); break;
@@ -603,8 +597,12 @@ class Compiler{
                     if (tokens[i].lexeme == "loadLibrary"){ tokens[i].type = TOKEN_LOADLIB; }
                     if (tokens[i].lexeme == "true"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(1); }
                     if (tokens[i].lexeme == "false"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(0); }
-                    if (tokens[i].lexeme == "f" && i + 1 < tokens.size() && tokens[i+1].type == TOKEN_STRING){ tokens[i].type = TOKEN_F_STR; } 
+                    if (tokens[i].lexeme == "v" && i + 1 < tokens.size() && tokens[i+1].type == TOKEN_STRING){ tokens[i].type = TOKEN_V_STR; } 
                 }
+
+                //operators
+                if (i + 1 < tokens.size() && tokens[i].type == TOKEN_PLUS && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_PLUS_E; tokens.erase(tokens.begin() + i + 1); }
+                
 
                 if (i + 1 < tokens.size() && tokens[i].type == TOKEN_NOT && tokens[i+1].type == TOKEN_EQUALS) { tokens[i].type = TOKEN_NOT_EQUALS; tokens.erase(tokens.begin() + i + 1); }
                 if (i + 1 < tokens.size() && tokens[i].type == TOKEN_PLUS && tokens[i+1].type == TOKEN_PLUS) { tokens[i].type = TOKEN_INCREMENT; tokens.erase(tokens.begin() + i + 1); }
@@ -768,13 +766,55 @@ class Compiler{
                         continue;
                     }
                 }
+                // i+=
+                if (tokens[current].type == TOKEN_IDENTIFIER && tokens[current+1].type == TOKEN_PLUS_E || tokens[current+1].type == TOKEN_MINUS_E
+                || tokens[current+1].type == TOKEN_MULT_E || tokens[current+1].type == TOKEN_DIV_E){
+                    std::string varName = tokens[current].lexeme;
+                    current++;
+                    isiTokenType* t = &tokens[current].type;
+                    current++;
+
+                    auto varNode = std::make_unique<VariableExpr>(varName);
+                    
+                    auto literalNode = std::make_unique<LiteralExpr>(tokens[current].lexeme);
+                    
+                    Token tok;
+
+                    switch (*t)
+                    {
+                    case TOKEN_PLUS_E:
+                        tok = Token{TOKEN_PLUS, "+"};
+                        break;
+                    case TOKEN_MINUS_E:
+                        tok = Token{TOKEN_MINUS, "-"};
+                        break;
+                    case TOKEN_MULT_E:
+                        tok = Token{TOKEN_STAR, "*"};
+                        break;
+                    case TOKEN_DIV_E:
+                        tok = Token{TOKEN_SLASH, "/"};
+                        break;
+                    default:
+                        break;
+                    }
+                    auto binexpr = std::make_unique<BinaryExpr>(
+                        std::move(varNode), 
+                        tok, 
+                        std::move(literalNode)
+                    );
+
+                    blockStatements.push_back(
+                        std::make_unique<ExpressionStmt>(
+                            std::make_unique<AssignExpr>(varName, std::move(binexpr))
+                        )
+                    );
+                }
+                // i++ i--
                 if (tokens[current].type == TOKEN_IDENTIFIER && tokens[current+1].type == TOKEN_INCREMENT
                     || tokens[current+1].type == TOKEN_DECREMENT){
                     std::string varName = tokens[current].lexeme;
                     current++;
                     const isiTokenType *tokType = &tokens[current].type;
-
-                    std::print("{}\n", enum_to_string(tokens[current].type));
 
                     auto varNode = std::make_unique<VariableExpr>(varName);
                     
@@ -1362,7 +1402,30 @@ public:
                     if (std::holds_alternative<double>(a) || std::holds_alternative<double>(b)) {
                         double result = (double)(valueToFloat(a) * valueToFloat(b));
                         push(result);
-                    } else {
+                    }
+                    else if (std::holds_alternative<std::string>(a) || std::holds_alternative<std::string>(b))
+                    {
+                        int mult=0;
+                        std::string by;
+                        std::string out;
+                        if (std::holds_alternative<int>(a)){
+                            mult = valueToInt(a);
+                            by = valueToString(b);
+                        }
+                        else
+                        {
+                            mult = valueToInt(b);
+                            by = valueToString(a);
+                        }
+                        out = by;
+                        if (mult < 0){throwError("Cannot multiply strings by negative values", errors::syntaxError, 1, "Syntax Error");}
+                        std::print("Multiplying {}x {}\n", mult, by);
+                        for (int i = 1; i < mult; i++){
+                            by = by + out;
+                        }
+                        push(by);
+                    } 
+                    else {
                         int result = valueToInt(a) * valueToInt(b);
                         push(result);
                     }
