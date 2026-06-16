@@ -33,7 +33,7 @@ As you can see, there are unnecessary OP_LOAD Op Codes added, they
 should be replaced with <br>`OP_LOAD [constant value]`
 
 Optimized bytecode should be:
-```
+```asm
 OP_PUSH   5
 OP_PRINT  
 OP_PUSH   \n
