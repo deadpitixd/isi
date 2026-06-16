@@ -16,10 +16,10 @@ print(x,"\n");
 ```
 The code simply prints x out.
 
-> Following bytecode results are from ISI Beta 1½
+> Following bytecode results are from `ISI Beta 2 dev`
 
 The bytecode for non optimized constants is this:
-```
+```asm
 OP_PUSH   5
 OP_STORE  1
 OP_LOAD   1
@@ -33,7 +33,7 @@ As you can see, there are unnecessary OP_LOAD Op Codes added, they
 should be replaced with <br>`OP_LOAD [constant value]`
 
 Optimized bytecode should be:
-```
+```asm
 OP_PUSH   5
 OP_PRINT  
 OP_PUSH   \n
