@@ -16,7 +16,7 @@ print(x,"\n");
 ```
 The code simply prints x out.
 
-> Following bytecode results are from ISI Beta 1½
+> Following bytecode results are from `ISI Beta 2 dev`
 
 The bytecode for non optimized constants is this:
 ```
