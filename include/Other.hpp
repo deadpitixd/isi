@@ -65,7 +65,7 @@ constexpr std::string_view enum_to_string(E value) {
 }
 
 enum class FuncType {
-    INT, FLOAT, STRING, BOOL, VOID
+    INT, FLOAT, STRING, BOOL, VOID, STRUCT
 };
 
 enum isiTokenType : uint{
@@ -87,6 +87,10 @@ enum isiTokenType : uint{
     TOKEN_THROW,
     TOKEN_LOADLIB,
 
+    TOKEN_OVERLOAD,
+
+    TOKEN_STRUCT,
+
     // operators
     TOKEN_PLUS,
     TOKEN_MINUS,
@@ -94,6 +98,7 @@ enum isiTokenType : uint{
     TOKEN_SLASH,
     TOKEN_EQUALS,
     TOKEN_NOT_EQUALS,
+    TOKEN_DOT,
 
     TOKEN_PLUS_E, // +=
     TOKEN_MINUS_E,
@@ -316,9 +321,11 @@ std::string stringify(const Value& v) {
         } else if constexpr (std::is_same_v<T, bool>) {
             return arg ? "true" : "false";
         } else if constexpr (std::is_same_v<T, char>) {
-            return std::string(1, arg); 
-        } else if constexpr (std::is_same_v<T, std::monostate>) { 
-            return "null"; 
+            return std::string(1, arg);
+        } else if constexpr (std::is_same_v<T, std::monostate>) {
+            return "null";
+        } else if constexpr (std::is_same_v<T, std::shared_ptr<IsiStructInstance>>) {
+            return arg ? ("struct " + arg->name) : "null";
         } else {
             return std::to_string(arg);
         }

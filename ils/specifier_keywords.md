@@ -46,7 +46,12 @@ As you can see, OP_STORE was removed and all OP_LOAD that instances pointed to `
 
 Constant variables should not be saved, since all their occurences are changed to a literal.
 
-## 2. extern()
+## 2. Overload
+`overload` is a keyword, that tells the interpreter, that it serves the purpose of a default function.
+
+Only interpreter functions can be overloaded.
+
+## 3. extern()
 Extern is a keyword that is placed before a function declaration, it states<br>
 <span style="color:orange">"This function is declared in an C++ file with id [x]"</span>.<br>
 

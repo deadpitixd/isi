@@ -4,9 +4,10 @@
 
 #include <variant>
 #include <string>
+#include <map>
+#include <memory>
 #include "Opcode.hpp"
 
-// Small helper
 std::string getPlatform(){
 #ifdef WIN32
     return "windows";
@@ -31,9 +32,24 @@ std::string getPlatformLibraryName(const std::string& baseName) {
 #endif
 }
 
-enum class DataType { INT, FLOAT, STRING, BOOL, CHAR, VOID};
+enum class DataType { INT, FLOAT, STRING, BOOL, CHAR, VOID, STRUCT };
 
-using Value = std::variant<std::monostate, int, double, std::string, bool, char>;
+struct IsiStructInstance;
+
+using Value = std::variant<
+    std::monostate, 
+    int, 
+    double, 
+    std::string, 
+    bool, 
+    char, 
+    std::shared_ptr<IsiStructInstance>
+>;
+
+struct IsiStructInstance {
+    std::string name;
+    std::map<std::string, Value> fields;
+};
 
 constexpr bool isNull(const Value& val){
     return std::holds_alternative<std::monostate>(val);

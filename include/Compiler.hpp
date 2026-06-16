@@ -571,6 +571,7 @@ class Compiler{
                     case '!': { tokens.push_back({TOKEN_NOT, "!"}); i++; continue; }
                     case '>': { tokens.push_back({TOKEN_BIGGER, ">"}); i++; continue; }
                     case '<': { tokens.push_back({TOKEN_SMALLER, "<"}); i++; continue; }
+                    case '.': { tokens.push_back({TOKEN_DOT, "."}); i++; continue; }
                     default: break;
                 }
 
@@ -595,6 +596,9 @@ class Compiler{
                     if (tokens[i].lexeme == "return"){ tokens[i].type = TOKEN_RETURN; }
                     if (tokens[i].lexeme == "throw"){ tokens[i].type = TOKEN_THROW; }
                     if (tokens[i].lexeme == "loadLibrary"){ tokens[i].type = TOKEN_LOADLIB; }
+                    if (tokens[i].lexeme == "overload"){ tokens[i].type = TOKEN_OVERLOAD; }
+                    if (tokens[i].lexeme == "struct"){ tokens[i].type = TOKEN_STRUCT; }
+
                     if (tokens[i].lexeme == "true"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(1); }
                     if (tokens[i].lexeme == "false"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(0); }
                     if (tokens[i].lexeme == "v" && i + 1 < tokens.size() && tokens[i+1].type == TOKEN_STRING){ tokens[i].type = TOKEN_V_STR; } 
@@ -765,6 +769,34 @@ class Compiler{
                         isConstDecl = false;
                         continue;
                     }
+                }
+                
+                if (tokens[current].type == TOKEN_STRUCT){
+                    if (current + 1 >= tokens.size() || tokens[current + 1].type != TOKEN_IDENTIFIER){
+                        throwError("Expected identifier after struct keyword", errors::syntaxError, 1, "Syntax Error");
+                    }
+                    current++;
+                    std::string name = tokens[current].lexeme;
+                    current++;
+                    
+                    if (isAtEnd() || tokens[current].type != TOKEN_LBRACE) {
+                        throwError("Expected '{' to start struct body", errors::syntaxError, 1, "Syntax Error");
+                    }
+                    current++;
+
+                    std::vector<Token> out;
+                    int braceCount = 1;
+                    while (!isAtEnd() && braceCount > 0) {
+                        if (tokens[current].type == TOKEN_LBRACE) braceCount++;
+                        if (tokens[current].type == TOKEN_RBRACE) braceCount--;
+                        if (braceCount > 0) {
+                            out.push_back(tokens[current++]);
+                        } else {
+                            current++;
+                        }
+                    }
+                    std::vector<std::unique_ptr<Stmt>> parsed = parseBlock(out);
+                    blockStatements.push_back(std::make_unique<StructDeclStmt>(name, std::move(parsed)));
                 }
                 // i+=
                 if (tokens[current].type == TOKEN_IDENTIFIER && tokens[current+1].type == TOKEN_PLUS_E || tokens[current+1].type == TOKEN_MINUS_E
@@ -1428,7 +1460,6 @@ public:
                         }
                         out = by;
                         if (mult < 0){throwError("Cannot multiply strings by negative values", errors::syntaxError, 1, "Syntax Error");}
-                        std::print("Multiplying {}x {}\n", mult, by);
                         for (int i = 1; i < mult; i++){
                             by = by + out;
                         }

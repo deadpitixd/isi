@@ -55,6 +55,7 @@ struct ExpressionStmt : public Stmt {
     ExpressionStmt(std::unique_ptr<Expr> e) : expression(std::move(e)) {}
 };
 
+
 struct VarDeclStmt : public Stmt {
     DataType type;
     std::string name;
@@ -158,4 +159,33 @@ class ReturnStmt : public Stmt {
 public:
     std::unique_ptr<Expr> value;
     ReturnStmt(std::unique_ptr<Expr> val) : value(std::move(val)) {}
+};
+
+struct StructDeclStmt : public Stmt {
+    std::string name;
+    std::vector<std::unique_ptr<Stmt>> members;
+    StructDeclStmt(std::string n, std::vector<std::unique_ptr<Stmt>> m)
+        : name(std::move(n)), members(std::move(m)) {}
+};
+
+struct MemberAccessExpr : public Expr {
+    std::unique_ptr<Expr> object;
+    std::string member;
+    MemberAccessExpr(std::unique_ptr<Expr> obj, std::string mem)
+        : object(std::move(obj)), member(std::move(mem)) {}
+};
+
+struct MethodCallExpr : public Expr {
+    std::unique_ptr<Expr> object;
+    std::string methodName;
+    std::vector<std::unique_ptr<Expr>> arguments;
+    MethodCallExpr(std::unique_ptr<Expr> obj, std::string name, std::vector<std::unique_ptr<Expr>> args)
+        : object(std::move(obj)), methodName(std::move(name)), arguments(std::move(args)) {}
+};
+
+struct OverloadDeclStmt : public Stmt {
+    std::string opName;
+    std::unique_ptr<FunctionDeclStmt> method;
+    OverloadDeclStmt(std::string op, std::unique_ptr<FunctionDeclStmt> m)
+        : opName(std::move(op)), method(std::move(m)) {}
 };
