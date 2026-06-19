@@ -77,6 +77,10 @@ enum isiTokenType : uint{
     TOKEN_IDENTIFIER,
     TOKEN_RETURN,
 
+    TOKEN_AUTO,
+
+    TOKEN_NULL,
+
     // keywords
     TOKEN_VAR,
     TOKEN_PRINT,
@@ -111,7 +115,7 @@ enum isiTokenType : uint{
     // symbols
     TOKEN_LPAREN,
     TOKEN_RPAREN,
-    TOKEN_LBRACKET,
+    TOKEN_LBRACKET, 
     TOKEN_RBRACKET,
     TOKEN_LBRACE,
     TOKEN_RBRACE,
@@ -310,6 +314,7 @@ std::string typeToString(DataType type) {
         case DataType::STRING: return "string";
         case DataType::BOOL:   return "bool";
         case DataType::CHAR:   return "char";
+        case DataType::VOID:   return "null-auto";
         default:               return "unknown";
     }
 }
@@ -385,21 +390,6 @@ bool valueToBool(const Value& val) {
     return false;
 }
 
-std::string valueToString(const Value& val) {
-    if (std::holds_alternative<std::string>(val)) {
-        return std::get<std::string>(val);
-    } else if (std::holds_alternative<int>(val)) {
-        return std::to_string(std::get<int>(val));
-    } else if (std::holds_alternative<double>(val)) {
-        return std::to_string(std::get<double>(val));
-    } else if (std::holds_alternative<bool>(val)) {
-        return std::get<bool>(val) ? "true" : "false";
-    } else if (std::holds_alternative<char>(val)){
-        return std::string(1,std::get<char>(val));
-    }
-    return "";
-}
-
 static DataType getValType(const Value& val) {
     if (std::holds_alternative<int>(val)) return DataType::INT;
     if (std::holds_alternative<double>(val)) return DataType::FLOAT;
@@ -408,7 +398,7 @@ static DataType getValType(const Value& val) {
     if (std::holds_alternative<char>(val)) return DataType::CHAR;
 
     if (val.valueless_by_exception()) {
-        throwError("Internal Error: Value is in an invalid state", -4);
+        throwError("Value is in an invalid state", errors::staticException, false, errorToString(errors::staticException));
     }
 
     throwError("Unknown value type during type check", -4);
@@ -466,6 +456,7 @@ bool isTypeCompatible(DataType expected, DataType given) {
     if (expected == DataType::INT && given == DataType::FLOAT) return true;
     if (expected == DataType::CHAR && given == DataType::INT) return true;
     if (expected == DataType::INT && given == DataType::CHAR) return true;
+    if (expected == DataType::VOID || given == DataType::VOID) return true; // auto keyword
     return false;
 }
 
@@ -476,8 +467,8 @@ Value convertValSafely(const Value& val, const DataType& expected, const DataTyp
     if (expected==DataType::INT && given == DataType::FLOAT) return (int)valueToFloat(val);
     if (expected==DataType::FLOAT && given == DataType::INT) return valueToFloat(val);
     if (expected==DataType::CHAR && given == DataType::INT) return (char)valueToInt(val);
-    if (expected==DataType::INT && given == DataType::CHAR) return (int)(valueToString(val)[0]);
-    if (expected==DataType::STRING) return valueToString(val);
+    if (expected==DataType::INT && given == DataType::CHAR) return (int)(stringify(val)[0]);
+    if (expected==DataType::STRING) return stringify(val);
     return std::monostate{};
 }
 
@@ -498,6 +489,9 @@ Value defaultValueOfType(DataType type){
         case DataType::CHAR:{
             return ' ';
         };
+        default:{
+            return std::monostate{};
+        }
     }
     return std::monostate{};
 }
@@ -573,4 +567,16 @@ std::string nearestString(const std::vector<std::string> &set, const std::string
     }
 
     return curNearest;
+}
+
+std::string errorToString(errors err){
+    switch (err){
+        case defaultException:  return "Default Exception"; break;
+        case strayKeywordError: return "Stray Keyword"    ; break;
+        case undefinedError:    return "Undefined"        ; break;
+        case uncaughtException:return "Uncaught Exception"; break;
+        case staticException: return "Compiler Exception" ; break;
+        default: return "Unknown Error"; break;
+    }
+    return "";
 }

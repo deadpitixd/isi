@@ -1,6 +1,4 @@
-struct myStruct {
-    int x = 5;
-};
+import "std/standard.isi"
 
-myStruct s;
-print(s.x,"\n");
+int a = null;
+print(a,"\n");

@@ -1,8 +1,8 @@
-# ILS: Specifier Keywords
+# ILS: Keywords
 Version: 1.0<br>
 Status: Proposed
 
-Specifier keywords give certain properties to objects that accept them.
+Keywords do certain things or give certain properties to objects that accept them.
 
 ## 1. `const`
 `const` declares that a variable is constant, it cannot change.
@@ -56,3 +56,8 @@ Extern is a keyword that is placed before a function declaration, it states<br>
 <span style="color:orange">"This function is declared in an C++ file with id [x]"</span>.<br>
 
 Extern uses constant int ids, that point to files loaded by 'loadLibary()'
+
+## 4. Variable declaration
+
+## 5. auto
+Auto is a keyword that only extern functions can use, it allows to input anything in the function.

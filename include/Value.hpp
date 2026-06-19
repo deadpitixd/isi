@@ -6,6 +6,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <vector>
 #include "Opcode.hpp"
 
 std::string getPlatform(){

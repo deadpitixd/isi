@@ -237,7 +237,7 @@ int main(int argc, char* argv[]){
 
         if (debug) {
             for (const auto& i : instr) {
-                std::println("Op: {}, Val: {}", enum_to_string(i.op), valueToString(i.value));
+                std::println("Op: {}, Val: {}", enum_to_string(i.op), stringify(i.value));
             }
         }
         
@@ -256,7 +256,7 @@ int main(int argc, char* argv[]){
     std::unordered_set<std::string> seenImports;
     std::string resolvedCode = resolveImports(code, fs::path(fileName).parent_path(), seenImports);
     if (debug && flags.contains("--print-chars")){
-    for (int i = 0; i < code.size(); i++) {
+    for (size_t i = 0; i < code.size(); i++) {
         std::cout << "[" << i << "] " << code[i] << std::endl;
     }
     }

@@ -30,22 +30,15 @@ extern(std) int stringToInt(string);
 extern(std) int stringToFloat(string);
 #input#
 extern(std) string input();
-#returns the value type as a string
- Strings can store every value, but i should replace it
- later with an auto keyword
+#returns the string #
 
- Thankfully in C++, std::vector<Value> doesnt have the data type
- saved, so it guesses it based off valueTypeToString();
+# extern(std) char let(int, string); 
+    replaced with [] operator
 #
-
-#
-* deprecated
-#
-extern(std) char let(int, string);
 extern(std) int charToAscii(string);
 
 #Gets the type based on the input as a string#
-extern(std) string typeAsString(string);
+extern(std) string typeAsString(auto);
 
 #Gets the length of a string#
 extern(std) int lengthof(string);
@@ -56,12 +49,12 @@ string getLets(string in, int from, int to){
     if (to > strsize){return NULL}
     if (from > strsize){return NULL}
     if (from < 0){return NULL}
-    if (from == to){return let(from, in);}
+    if (from == to){return in[from];}
     #the starting point#
     int i = from;
     string out;
     while (i < to){
-        out = out + let(i,in);
+        out = out + in[i];
         i = i + 1;
     }
     return out;
@@ -78,7 +71,7 @@ extern(std) int typeAsInt(string);
 #prevents data loss when converting float->int
  basically rounds the number
 #
-const int floatToInt(float in){
+int floatToInt(float in){
     #trims the float#
     const int i = in;
     #gets the floating point#
@@ -102,16 +95,19 @@ const int floatToInt(float in){
 
 }
 
+extern(std) int bytesize(auto in);
+
 #quick test if stuff from standard work#
 int test(){
     const string str = "Hello World!"
-    auto v = 4.4;
+    float v = 4.4;
     print(false,"\n");
     print(v,"\n\n-other-\n\n");
     print(pi,"\n",lengthof(pi),"\n");
     print(getLets(str, 0, 5),"\n");
     const int c = 0;
-    print(let(c, str),"\n");
-    print(typeAsInt("true"),"\n");
+    print(str[c],"\n");
+    print(typeAsString(1),"\n");
+    print("Size of int: ",bytesize(0),"\n");
     return 0;
 }

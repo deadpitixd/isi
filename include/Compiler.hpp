@@ -43,11 +43,11 @@ class Compiler{
     std::vector<Token> errTokens;
     int current = 0;
     bool isAtEnd() {
-        return current >= errTokens.size() || errTokens[current].type == TOKEN_EOF;
+        return (size_t)current >= errTokens.size() || errTokens[current].type == TOKEN_EOF;
     }
 
     Token peek(int distance) {
-        if (current + distance >= errTokens.size()) {
+        if (static_cast<size_t>(current + distance) >= errTokens.size()) {
             return errTokens.back();
         }
         return errTokens[current + distance];
@@ -165,6 +165,16 @@ class Compiler{
                     expr = std::make_unique<VariableExpr>(errTokens[current++].lexeme);
                 }
 
+                while (!isAtEnd() && errTokens[current].type == TOKEN_DOT) {
+                    current++;
+                    if (errTokens[current].type != TOKEN_IDENTIFIER) {
+                        throwError("Expected property name after '.'", errors::syntaxError, true, "Syntax Error");
+                    }
+                    std::string propName = errTokens[current++].lexeme;
+                    
+                    expr = std::make_unique<MemberAccessExpr>(std::move(expr), propName);
+                }
+
                 while (!isAtEnd() && errTokens[current].type == TOKEN_LBRACKET) {
                     current++;
                     auto indexExpr = expression();
@@ -176,6 +186,11 @@ class Compiler{
                 }
 
                 return expr;
+            }
+
+            if (errTokens[current].type == TOKEN_NULL){
+                current++;
+                return std::make_unique<LiteralExpr>(std::monostate{});
             }
 
             if (errTokens[current].type == TOKEN_LPAREN) {
@@ -217,7 +232,7 @@ class Compiler{
         std::unique_ptr<Expr> addition() {
             auto expr = equality();
 
-            while (current + 1 < errTokens.size() && 
+            while (static_cast<size_t>(current + 1) < errTokens.size() && 
                   ((errTokens[current].type == TOKEN_EQUALS && errTokens[current + 1].type == TOKEN_EQUALS) ||
                    (errTokens[current].type == TOKEN_NOT_EQUALS) || (errTokens[current].type == TOKEN_BIGGER) ||
                    (errTokens[current].type == TOKEN_SMALLER))) {
@@ -258,7 +273,7 @@ class Compiler{
                 return std::make_unique<LoadLibExpr>(libPath);
             }
             
-            if (current + 1 < errTokens.size() && errTokens[current].type == TOKEN_IDENTIFIER && errTokens[current + 1].type == TOKEN_EQUALS && errTokens[current + 2].type != TOKEN_EQUALS) {
+            if (static_cast<size_t>(current + 1) < errTokens.size() && errTokens[current].type == TOKEN_IDENTIFIER && errTokens[current + 1].type == TOKEN_EQUALS && errTokens[current + 2].type != TOKEN_EQUALS) {
                 std::string name = errTokens[current].lexeme;
                 current += 2;
                 auto value = expression();
@@ -269,12 +284,17 @@ class Compiler{
         DataType compileExpression(const std::unique_ptr<Expr>& node) {
             if (auto literal = dynamic_cast<LiteralExpr*>(node.get())) {
                 
+                if (std::holds_alternative<std::monostate>(literal->value)){
+                    emitInstruction(OP_PUSH, std::monostate{});
+                    return DataType::VOID;
+                }
+
                 if (std::holds_alternative<char>(literal->value)) {
                     emitInstruction(OP_PUSH, literal->value);
                     return DataType::CHAR;
                 }
 
-                std::string valStr = valueToString(literal->value);
+                std::string valStr = stringify(literal->value);
                 
                 bool isNumeric = !valStr.empty() && valStr.find_first_not_of("-0123456789.") == std::string::npos;
 
@@ -408,6 +428,11 @@ class Compiler{
                 emitInstruction(OP_CALL, call->callee);
                 return func.returnType;
             }
+            else if (auto member = dynamic_cast<MemberAccessExpr*>(node.get())){
+                DataType objType = compileExpression(member->object);
+                emitInstruction(OP_GET_MEMBER, member->member);
+                return objType;
+            }
             else if (auto binary = dynamic_cast<BinaryExpr*>(node.get())) {
                 DataType leftType = compileExpression(binary->left);
                 DataType rightType = compileExpression(binary->right);
@@ -445,7 +470,7 @@ class Compiler{
             int index = nextAvailableIndex++;
             symbolTable[name] = { index, type };
 
-            if (index >= indexTypes.size()) {
+            if (static_cast<size_t>(index) >= indexTypes.size()) {
                 indexTypes.resize(index + 1);
             }
             indexTypes[index] = type;
@@ -457,16 +482,16 @@ class Compiler{
             std::vector<Token> tokens;
             int i = 0;
 
-            while (i < src.size()) {
+            while (static_cast<size_t>(i) < src.size()) {
                 char c = src[i];
 
                 if (c == '#') {
                     i++;
                     size_t commentStart = i;
-                    while (i < src.size() && src[i] != '#') {
+                    while (static_cast<size_t>(i) < src.size() && src[i] != '#') {
                         i++;
                     }
-                    if (i > commentStart) {
+                    if (static_cast<size_t>(i) > commentStart) {
                         std::string commentContent = src.substr(commentStart, i - commentStart);
                         if (commentContent.find("__SOURCE_DIR__") != std::string::npos) {
                             size_t dirStart = commentContent.find('"');
@@ -476,17 +501,17 @@ class Compiler{
                             }
                         }
                     }
-                    if (i < src.size()) i++;
+                    if (static_cast<size_t>(i) < src.size()) i++;
                     continue;
                 }
                 if (c == '"'){
                     i++;
                     std::string id;
-                    while (i < src.size() && src[i] != '"')
+                    while (static_cast<size_t>(i) < src.size() && src[i] != '"')
                     {
                         id += src[i++];
                     }
-                    if (i < src.size()) i++;
+                    if (static_cast<size_t>(i) < src.size()) i++;
                     tokens.push_back({TOKEN_STRING, id});
                     continue;
                 }
@@ -513,11 +538,11 @@ class Compiler{
                     continue;
                 }
 
-                if (c == '-' && i + 1 < src.size() && isdigit(src[i+1])) {
+                if (c == '-' && static_cast<size_t>(i + 1) < src.size() && isdigit(src[i+1])) {
                     std::string num;
                     num += src[i++];
                     bool hasDecimal = false;
-                    while (i < src.size() && (isdigit(src[i]) || src[i] == '.')) {
+                    while (static_cast<size_t>(i) < src.size() && (isdigit(src[i]) || src[i] == '.')) {
                         if (src[i] == '.') {
                             if (hasDecimal) break;
                             hasDecimal = true;
@@ -531,7 +556,7 @@ class Compiler{
                 if (isdigit(c)) {
                     std::string num;
                     bool hasDecimal = false;
-                    while (i < src.size() && (isdigit(src[i]) || src[i] == '.')) {
+                    while (static_cast<size_t>(i) < src.size() && (isdigit(src[i]) || src[i] == '.')) {
                         if (src[i] == '.') {
                             if (hasDecimal) break;
                             hasDecimal = true;
@@ -543,7 +568,7 @@ class Compiler{
                 }
                 if (isalpha(c) || c == '_') {
                     std::string id;
-                    while (i < src.size() && isalnum(src[i]) ||  src[i] == '_') {
+                    while (static_cast<size_t>(i) < src.size() && (isalnum(src[i]) ||  src[i] == '_')) {
                         id += src[i++];
                     }
                     tokens.push_back({TOKEN_IDENTIFIER, id});
@@ -598,9 +623,11 @@ class Compiler{
                     if (tokens[i].lexeme == "loadLibrary"){ tokens[i].type = TOKEN_LOADLIB; }
                     if (tokens[i].lexeme == "overload"){ tokens[i].type = TOKEN_OVERLOAD; }
                     if (tokens[i].lexeme == "struct"){ tokens[i].type = TOKEN_STRUCT; }
+                    if (tokens[i].lexeme == "auto"){ tokens[i].type = TOKEN_AUTO; }
 
                     if (tokens[i].lexeme == "true"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(1); }
                     if (tokens[i].lexeme == "false"){ tokens[i].type = TOKEN_NUMBER; tokens[i].lexeme = std::to_string(0); }
+                    if (tokens[i].lexeme == "null"){ tokens[i].type = TOKEN_NULL; }
                     if (tokens[i].lexeme == "v" && i + 1 < tokens.size() && tokens[i+1].type == TOKEN_STRING){ tokens[i].type = TOKEN_V_STR; } 
                 }
 
@@ -631,6 +658,10 @@ class Compiler{
                     if (!tokenIsDecl(tokens[current].type)){
                         throwError(std::string("Stray 'const' keyword met, expected identifier (Requested: ") + enum_to_string(TOKEN_IDENTIFIER) + ", but got: " + enum_to_string(tokens[current].type)
                         ,errors::strayKeywordError, true , "Stray Keyword Error");
+                    }
+                    if (tokens[current+2].type == TOKEN_LPAREN){
+                        throwError((std::string)"Function cannot be constant (Function '" + tokens[current+1].lexeme
+                        + "')", errors::syntaxError, 1, errorToString(errors::syntaxError));
                     }
                 }
                 if (tokens[current].type == TOKEN_IMPORT) {
@@ -673,7 +704,8 @@ class Compiler{
                     
                     std::vector<Param> params;
                     while (!isAtEnd() && tokens[current].type != TOKEN_RPAREN) {
-                        if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR_T && tokens[current].type != TOKEN_BOOL) {
+                        if (tokens[current].type != TOKEN_INT && tokens[current].type != TOKEN_FLOAT && tokens[current].type != TOKEN_STRING_T && tokens[current].type != TOKEN_CHAR_T && tokens[current].type != TOKEN_BOOL
+                            && tokens[current].type != TOKEN_AUTO) {
                             throwError("Expected parameter type in extern declaration", errors::syntaxError, true, "Syntax Error");
                         }
                         DataType pType;
@@ -681,7 +713,8 @@ class Compiler{
                         else if (tokens[current].type == TOKEN_FLOAT) pType = DataType::FLOAT;
                         else if (tokens[current].type == TOKEN_BOOL) pType = DataType::BOOL;
                         else if (tokens[current].type == TOKEN_CHAR_T) pType = DataType::CHAR;
-                        else pType = DataType::STRING;
+                        else if (tokens[current].type == TOKEN_STRING_T) pType = DataType::STRING;
+                        else DataType::VOID;
                         current++;
                         
                         std::string paramName = "arg" + std::to_string(params.size());
@@ -771,36 +804,37 @@ class Compiler{
                     }
                 }
                 
-                if (tokens[current].type == TOKEN_STRUCT){
-                    if (current + 1 >= tokens.size() || tokens[current + 1].type != TOKEN_IDENTIFIER){
+                if (tokens[current].type == TOKEN_STRUCT) {
+                    if (static_cast<size_t>(current + 1) >= tokens.size() || tokens[current + 1].type != TOKEN_IDENTIFIER) {
                         throwError("Expected identifier after struct keyword", errors::syntaxError, 1, "Syntax Error");
                     }
                     current++;
                     std::string name = tokens[current].lexeme;
                     current++;
-                    
+
                     if (isAtEnd() || tokens[current].type != TOKEN_LBRACE) {
                         throwError("Expected '{' to start struct body", errors::syntaxError, 1, "Syntax Error");
                     }
                     current++;
 
-                    std::vector<Token> out;
-                    int braceCount = 1;
-                    while (!isAtEnd() && braceCount > 0) {
-                        if (tokens[current].type == TOKEN_LBRACE) braceCount++;
-                        if (tokens[current].type == TOKEN_RBRACE) braceCount--;
-                        if (braceCount > 0) {
-                            out.push_back(tokens[current++]);
-                        } else {
-                            current++;
-                        }
+                    std::vector<std::unique_ptr<Stmt>> parsed = parseBlock(tokens);
+
+                    if (isAtEnd() || tokens[current].type != TOKEN_RBRACE) {
+                        throwError("Expected '}' at end of struct block", errors::syntaxError, 1, "Syntax Error");
                     }
-                    std::vector<std::unique_ptr<Stmt>> parsed = parseBlock(out);
+                    current++;
+
                     blockStatements.push_back(std::make_unique<StructDeclStmt>(name, std::move(parsed)));
+                    continue;
+                }
+                if (tokens[current].type == TOKEN_IDENTIFIER){
+                    std::string name = tokens[current].lexeme;
+                    
+                    
                 }
                 // i+=
-                if (tokens[current].type == TOKEN_IDENTIFIER && tokens[current+1].type == TOKEN_PLUS_E || tokens[current+1].type == TOKEN_MINUS_E
-                || tokens[current+1].type == TOKEN_MULT_E || tokens[current+1].type == TOKEN_DIV_E){
+                if (tokens[current].type == TOKEN_IDENTIFIER && (tokens[current+1].type == TOKEN_PLUS_E || tokens[current+1].type == TOKEN_MINUS_E
+                || tokens[current+1].type == TOKEN_MULT_E || tokens[current+1].type == TOKEN_DIV_E)){
                     std::string varName = tokens[current].lexeme;
                     current++;
                     isiTokenType* t = &tokens[current].type;
@@ -842,8 +876,8 @@ class Compiler{
                     );
                 }
                 // i++ i--
-                if (tokens[current].type == TOKEN_IDENTIFIER && tokens[current+1].type == TOKEN_INCREMENT
-                    || tokens[current+1].type == TOKEN_DECREMENT){
+                if (tokens[current].type == TOKEN_IDENTIFIER && (tokens[current+1].type == TOKEN_INCREMENT
+                    || tokens[current+1].type == TOKEN_DECREMENT)){
                     std::string varName = tokens[current].lexeme;
                     current++;
                     const isiTokenType *tokType = &tokens[current].type;
@@ -956,7 +990,7 @@ class Compiler{
                 if (tokens[current].type == TOKEN_RETURN) {
                     current++;
                     std::unique_ptr<Expr> retVal = nullptr;
-                    if (current < tokens.size() && tokens[current].type != TOKEN_SEMICOLON) {
+                    if (static_cast<size_t>(current) < tokens.size() && tokens[current].type != TOKEN_SEMICOLON) {
                         retVal = expression();
                     }
                     if (tokens[current].type == TOKEN_SEMICOLON) current++;
@@ -1059,7 +1093,7 @@ class Compiler{
                                             newSymbol.constValue = nextLibraryId - 1;
                                             newSymbol.isConst = true; 
                     }
-                    if (newSymbol.index >= indexTypes.size()) {
+                    if (static_cast<size_t>(newSymbol.index) >= indexTypes.size()) {
                         indexTypes.resize(newSymbol.index + 1);
                     }
                     indexTypes[newSymbol.index] = varDecl->type;
@@ -1289,8 +1323,8 @@ class Compiler{
             if (debug){
                 int address = 0;
                 for (Instruction i : Code){
-                    if (valueToString(i.value) != "")
-                        std::println("{:04d}: {:<16} {}",address, enum_to_string(i.op), valueToString(i.value));
+                    if (stringify(i.value) != "")
+                        std::println("{:04d}: {:<16} {}",address, enum_to_string(i.op), stringify(i.value));
                     else
                         std::println("{:04d}: {:<16}", address , enum_to_string(i.op));
                     address++;
@@ -1378,7 +1412,7 @@ public:
         pc = 0;
         bool endsWithNewline = false;
         setErrParam(code, &pc);
-        while (pc < codeSize) {
+        while (static_cast<size_t>(pc) < codeSize) {
             const Instruction& instr = rawCode[pc];
 
             switch (instr.op) {
@@ -1401,7 +1435,7 @@ public:
                         }
                     } 
                     else {
-                        push(valueToString(a) + valueToString(b));
+                        push(stringify(a) + stringify(b));
                     }
                     break;
                 }
@@ -1424,10 +1458,10 @@ public:
                         push(result);
                     } else if (std::holds_alternative<std::string>(a) || std::holds_alternative<std::string>(b))
                     {
-                        std::string out = valueToString(a);
-                        size_t pos = out.find(valueToString(b));
+                        std::string out = stringify(a);
+                        size_t pos = out.find(stringify(b));
                         if (pos != std::string::npos) {
-                            out.erase(pos, valueToString(b).length());
+                            out.erase(pos, stringify(b).length());
                         }
                         push(out);
                     } 
@@ -1451,12 +1485,12 @@ public:
                         std::string out;
                         if (std::holds_alternative<int>(a)){
                             mult = valueToInt(a);
-                            by = valueToString(b);
+                            by = stringify(b);
                         }
                         else
                         {
                             mult = valueToInt(b);
-                            by = valueToString(a);
+                            by = stringify(a);
                         }
                         out = by;
                         if (mult < 0){throwError("Cannot multiply strings by negative values", errors::syntaxError, 1, "Syntax Error");}
@@ -1498,7 +1532,7 @@ public:
                         throwError("Stack Underflow PC: " + std::to_string(pc), -1);
                     }
                     Value val = pop();
-                    std::string text = valueToString(val);
+                    std::string text = stringify(val);
                     if (text.empty()) break;
                     handleEscapes(text);
                     std::print("{}",text);
@@ -1514,11 +1548,11 @@ public:
                     }
                     Value val = pop();
                     if (index == 0){ throwError("Cannot store on index 0", -1, true, "Forbidden Access"); }
-                    if (index < indexTypes.size()) {
+                    if (static_cast<size_t>(index) < indexTypes.size()) {
                         if (!isTypeCompatible(indexTypes[index], valueToType(val)))
                             throwError("Cannot store " + std::string(typeToString(indexTypes[index])) + " value into " + std::string(typeToString(valueToType(val))) + " variable", -1, true);
                     }
-                    if (index >= globals.size()) globals.resize(index + 1);
+                    if (static_cast<size_t>(index) >= globals.size()) globals.resize(index + 1);
                     globals[index] = convertValSafely(val, indexTypes[index], valueToType(val));
                 
                     break;
@@ -1527,12 +1561,12 @@ public:
                 case OP_LOAD: {
                     if (std::holds_alternative<int>(instr.value)) {
                         const int index = std::get<int>(instr.value);
-                        if (globals.size() <= index){
+                        if (globals.size() <= static_cast<size_t>(index)){
                             throwError("Stack Underflow", -1);
                         }
-                        if (isNull(globals[index])){
-                            throwError("No variable declared or variable is null.", -1);
-                        }
+                        // if (isNull(globals[index])){
+                        //     throwError("No variable declared or variable is null.", -1);
+                        // }
                         push(globals[index]);
                     }
                     break;
@@ -1588,7 +1622,7 @@ public:
                     break;
                 }
                 case OP_CALL: {
-                    std::string funcName = valueToString(instr.value);
+                    std::string funcName = stringify(instr.value);
                     if (!vmFunctions.contains(funcName)) {
                         throwError("Runtime Error: Invocation targeting missing function routine: " + funcName, -1);
                     }
@@ -1619,7 +1653,7 @@ public:
                     if (!stack.empty()) {
                         retVal = pop();
                     }
-                    while (stack.size() > currentFrame.stackBase) {
+                    while (stack.size() > static_cast<size_t>(currentFrame.stackBase)) {
                         pop();
                     }
                     
@@ -1646,7 +1680,7 @@ public:
                         val = convertValSafely(val, expected, given);
                     }
                     int actualIndex = frame.stackBase + slot;
-                    if (actualIndex >= stack.size()) {
+                    if (static_cast<size_t>(actualIndex) >= stack.size()) {
                         stack.resize(actualIndex + 1);
                     }
                     stack[actualIndex] = val;
@@ -1666,14 +1700,17 @@ public:
                     Value objVal = pop();
                     
                     int idx = valueToInt(indexVal);
-                    std::string str = valueToString(objVal);
+                    std::string str = stringify(objVal);
                     
-                    if (idx < 0 || idx > str.length()) {
+                    if (idx < 0 || static_cast<size_t>(idx) > str.length()) {
                         throwError("String index out of bounds", -1, true, "Runtime Error");
                     }
                     
                     push(str[idx]);
                     break;
+                }
+                case OP_GET_MEMBER:{
+
                 }
                 case OP_HALT:{
                     const Value out = pop();

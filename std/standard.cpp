@@ -15,7 +15,7 @@ extern "C" {
 
     Value stringToInt(const std::vector<Value>& args) {
         if (args.empty()) return ISI_NULL;
-        const string str = valueToString(args[0]);
+        const string str = stringify(args[0]);
         try
         {
             return std::stoi(str);
@@ -28,7 +28,7 @@ extern "C" {
     }
     Value stringToFloat(const std::vector<Value>& args) {
         if (args.empty()) return ISI_NULL;
-        const string str = valueToString(args[0]);
+        const string str = stringify(args[0]);
         try
         {
             return std::stof(str);
@@ -42,12 +42,9 @@ extern "C" {
     Value typeAsString(const std::vector<Value>& args){
         return valueTypeToStr(args[0]);
     }
-    Value let(const std::vector<Value>& args) {
-        // easy one liner
-        return string(1, valueToString(args[1])[valueToInt(args[0])]);
-    }
+    // let was deprecated by the [] operator
     Value charToAscii(const std::vector<Value>& args){
-        return std::to_string(valueToString(args[1])[0]);
+        return std::to_string(stringify(args[1])[0]);
     }
     Value getFlag(const std::vector<Value>& args){
         // not working currently sadly
@@ -63,7 +60,11 @@ extern "C" {
     }
     Value lengthof(const std::vector<Value>& args){
         if (args.size() == 0) return 0;
-        return (int)valueToString(args[0]).size();
+        return (int)stringify(args[0]).size();
+    }
+    Value bytesize(const std::vector<Value>& args){
+        if (args.empty()) return 0;
+        return (int)sizeof(args[0]);
     }
     Value typeAsInt(const std::vector<Value>& args){
         return (int)args[0].index();

@@ -28,6 +28,8 @@ enum OpCode : uint
     OP_STORE_LOCAL,
     OP_RETURN,
 
+    OP_GET_MEMBER,
+
     OP_NOT, // 18 the ! symbol, which basically inverts 1 -> 0, 0 -> 1
 
     OP_HALT, // 19
