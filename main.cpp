@@ -263,8 +263,10 @@ int main(int argc, char* argv[]){
     Compiler compiler;
     std::vector<Token> lexedOut = compiler.lex(resolvedCode);
     if (debug && !useDevEnv){
+        int cur;
         for (Token i : lexedOut){
-            std::cout << i.lexeme << ", " << i.type << "\n";
+            std::println("{}, {}, {}",cur, i.lexeme, enum_to_string(i.type));
+            cur++;
         }
     }
     if (useDevEnv){

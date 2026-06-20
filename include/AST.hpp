@@ -105,6 +105,15 @@ struct Param {
     std::string name;
 };
 
+struct Annotation {
+    std::string name;
+    std::vector<std::string> arguments;
+
+    Annotation(std::string n, std::vector<std::string> args) : name(std::move(n)), arguments(std::move(args)) {}
+
+    Annotation(std::string n) : name(std::move(n)){}
+};
+
 struct ExternStmt : public Stmt {
     std::string libHandle;
     std::string funcName;
@@ -140,10 +149,11 @@ public:
     std::string name;
     std::vector<Parameter> params;
     std::vector<Token> body;
+    std::vector<Annotation> annotations;
     bool isVoid;
 
-    FunctionDeclStmt(DataType retType, std::string n, std::vector<Parameter> p, std::vector<Token> b, bool v)
-        : returnType(retType), name(std::move(n)), params(std::move(p)), body(std::move(b)), isVoid(v) {}
+    FunctionDeclStmt(DataType retType, std::string n, std::vector<Parameter> p, std::vector<Token> b, bool v, std::vector<Annotation> an)
+        : returnType(retType), name(std::move(n)), params(std::move(p)), body(std::move(b)), isVoid(v), annotations(std::move(an)) {}
 };
 
 class CallExpr : public Expr {
@@ -161,21 +171,31 @@ public:
     ReturnStmt(std::unique_ptr<Expr> val) : value(std::move(val)) {}
 };
 
-struct StructDeclStmt : public Stmt {
+class StaticCastExpr : public Expr {
+public:
+    std::unique_ptr<Expr> value;
+    DataType targetType;
+    StaticCastExpr(DataType t, std::unique_ptr<Expr> val) : value(std::move(val)), targetType(std::move(t)) {};
+};
+
+class StructDeclStmt : public Stmt {
+    public:
     std::string name;
     std::vector<std::unique_ptr<Stmt>> members;
     StructDeclStmt(std::string n, std::vector<std::unique_ptr<Stmt>> m)
         : name(std::move(n)), members(std::move(m)) {}
 };
 
-struct MemberAccessExpr : public Expr {
+class MemberAccessExpr : public Expr {
+    public:
     std::unique_ptr<Expr> object;
     std::string member;
     MemberAccessExpr(std::unique_ptr<Expr> obj, std::string mem)
         : object(std::move(obj)), member(std::move(mem)) {}
 };
 
-struct MethodCallExpr : public Expr {
+class MethodCallExpr : public Expr {
+    public:
     std::unique_ptr<Expr> object;
     std::string methodName;
     std::vector<std::unique_ptr<Expr>> arguments;
@@ -183,7 +203,8 @@ struct MethodCallExpr : public Expr {
         : object(std::move(obj)), methodName(std::move(name)), arguments(std::move(args)) {}
 };
 
-struct OverloadDeclStmt : public Stmt {
+class OverloadDeclStmt : public Stmt {
+    public:
     std::string opName;
     std::unique_ptr<FunctionDeclStmt> method;
     OverloadDeclStmt(std::string op, std::unique_ptr<FunctionDeclStmt> m)

@@ -31,6 +31,8 @@ class Compiler{
     std::vector<DataType> indexTypes;
     std::string currentSourceDir;
 
+    std::vector<Annotation> annotations{};
+
     std::vector<Token> *globTokens;
 
     void emitByte(uint32_t byte) {
@@ -52,11 +54,14 @@ class Compiler{
         }
         return errTokens[current + distance];
     }
-    bool expect(int tok) {
+    bool expect(int tok, size_t distance=1) {
         if (isAtEnd()) return false;
-        if (errTokens[current + 1].type == tok) {
+        if ((size_t)(current + distance) >= errTokens.size() ? 
+            errTokens.back().type == tok : errTokens[(size_t)(current + distance)].type == tok) {
             return true;
         }
+        throwError((std::string)"Expected token '" + enum_to_string(static_cast<isiTokenType>(tok)) + "', at token line " +
+            std::to_string(current+distance), syntaxError, 1, errorToString(syntaxError));
         return false;
     }
     const Token& previous() {
@@ -138,7 +143,25 @@ class Compiler{
 
                 return rootExpr;
             }
-            if (errTokens[current].type == TOKEN_NUMBER || errTokens[current].type == TOKEN_STRING) {
+
+            if (errTokens[current].type == TOKEN_LPAREN && tokenIsDecl(errTokens[current+1].type)){
+                current++;
+                DataType t = tokenToType(errTokens[current].type);
+                expect(TOKEN_RPAREN);
+                current+=2;
+                return std::make_unique<StaticCastExpr>(t,primary());
+            }
+
+            if (errTokens[current].type == TOKEN_NUMBER) {
+                std::string lexeme = errTokens[current++].lexeme;
+                if (lexeme.find('.') != std::string::npos) {
+                    return std::make_unique<LiteralExpr>((double)std::stod(lexeme));
+                } else {
+                    return std::make_unique<LiteralExpr>((int)std::stoi(lexeme));
+                }
+            }
+
+            if (errTokens[current].type == TOKEN_STRING) {
                 return std::make_unique<LiteralExpr>(errTokens[current++].lexeme);
             }
             
@@ -288,26 +311,19 @@ class Compiler{
                     emitInstruction(OP_PUSH, std::monostate{});
                     return DataType::VOID;
                 }
-
                 if (std::holds_alternative<char>(literal->value)) {
                     emitInstruction(OP_PUSH, literal->value);
                     return DataType::CHAR;
                 }
-
-                std::string valStr = stringify(literal->value);
-                
-                bool isNumeric = !valStr.empty() && valStr.find_first_not_of("-0123456789.") == std::string::npos;
-
-                if (isNumeric) {
-                    DataType litType = getLiteralType(valStr);
-                    if (litType == DataType::FLOAT) {
-                        emitInstruction(OP_PUSH, std::stod(valStr));
-                        return DataType::FLOAT;
-                    } else {
-                        emitInstruction(OP_PUSH, std::stoi(valStr));
-                        return DataType::INT;
-                    }
-                } else {
+                if (std::holds_alternative<int>(literal->value)) {
+                    emitInstruction(OP_PUSH, literal->value);
+                    return DataType::INT;
+                }
+                if (std::holds_alternative<double>(literal->value)) {
+                    emitInstruction(OP_PUSH, literal->value);
+                    return DataType::FLOAT;
+                }
+                if (std::holds_alternative<std::string>(literal->value)) {
                     emitInstruction(OP_PUSH, literal->value);
                     return DataType::STRING;
                 }
@@ -373,6 +389,13 @@ class Compiler{
                 
                 emitInstruction(OP_PUSH, currentLibId);
                 return DataType::INT;
+            }
+            else if (auto cast = dynamic_cast<StaticCastExpr*>(node.get())){
+                DataType rhsType = compileExpression(cast->value);
+                emitInstruction(OP_PUSH, (int)rhsType);
+                emitInstruction(OP_CAST, (int)cast->targetType);
+                
+                return cast->targetType;
             }
             else if (auto assign = dynamic_cast<AssignExpr*>(node.get())) {
                 DataType rhsType = compileExpression(assign->value);
@@ -647,11 +670,11 @@ class Compiler{
             return {};
         }
 
-        std::vector<std::unique_ptr<Stmt>> parseBlock(std::vector<Token>& tokens) {
+        std::vector<std::unique_ptr<Stmt>> parseBlock(std::vector<Token>& tokens, const isiTokenType to = TOKEN_RBRACE) {
             std::vector<std::unique_ptr<Stmt>> blockStatements;
             
             bool isConstDecl=false;
-            while (!isAtEnd() && tokens[current].type != TOKEN_RBRACE) {
+            while (!isAtEnd() && tokens[current].type != to) {
                 if (tokens[current].type == TOKEN_CONST){
                     isConstDecl=true;
                     current++;
@@ -782,7 +805,7 @@ class Compiler{
                         }
                         current++;
 
-                        blockStatements.push_back(std::make_unique<FunctionDeclStmt>(type, funcName, parameters, funcBody, false));
+                        blockStatements.push_back(std::make_unique<FunctionDeclStmt>(type, funcName, parameters, funcBody, false, std::vector<Annotation>{}));
                         continue;
                     }
                     if (peek(1).type == TOKEN_IDENTIFIER) {
@@ -912,7 +935,7 @@ class Compiler{
                     blockStatements.push_back(std::make_unique<ExpressionStmt>(std::make_unique<AssignExpr>(name, std::move(value))));
                     continue;
                 }
-                if (tokens[current].type == TOKEN_IDENTIFIER && expect(TOKEN_LPAREN)) {
+                if (tokens[current].type == TOKEN_IDENTIFIER && peek(1).type == TOKEN_LPAREN) {
                     std::string funcName = tokens[current].lexeme;
                     std::vector<std::unique_ptr<Expr>> callArgs;
                     
@@ -1324,7 +1347,7 @@ class Compiler{
                 int address = 0;
                 for (Instruction i : Code){
                     if (stringify(i.value) != "")
-                        std::println("{:04d}: {:<16} {}",address, enum_to_string(i.op), stringify(i.value));
+                        std::println("{:04d}: {:<16} {}",address, enum_to_string(i.op), stringify(i.value) == "null" ? "" : stringify(i.value));
                     else
                         std::println("{:04d}: {:<16}", address , enum_to_string(i.op));
                     address++;
@@ -1425,6 +1448,9 @@ public:
                 case OP_ADD:{
                     Value b = pop();
                     Value a = pop();
+                    if (std::holds_alternative<std::monostate>(a) || std::holds_alternative<std::monostate>(b)){
+                        throwError("Cannot add null values", errors::uncaughtException, 1, errorToString(errors::uncaughtException));
+                    }
                     if ((std::holds_alternative<double>(a) || std::holds_alternative<int>(a)) &&
                         (std::holds_alternative<double>(b) || std::holds_alternative<int>(b))) {
                         
@@ -1549,11 +1575,12 @@ public:
                     Value val = pop();
                     if (index == 0){ throwError("Cannot store on index 0", -1, true, "Forbidden Access"); }
                     if (static_cast<size_t>(index) < indexTypes.size()) {
-                        if (!isTypeCompatible(indexTypes[index], valueToType(val)))
-                            throwError("Cannot store " + std::string(typeToString(indexTypes[index])) + " value into " + std::string(typeToString(valueToType(val))) + " variable", -1, true);
+                        if (indexTypes[index] != valueToType(val)) {
+                            throwError("Cannot store " + std::string(typeToString(valueToType(val))) + " value into " + std::string(typeToString(indexTypes[index])) + " variable", -1, true);
+                        }
                     }
                     if (static_cast<size_t>(index) >= globals.size()) globals.resize(index + 1);
-                    globals[index] = convertValSafely(val, indexTypes[index], valueToType(val));
+                    globals[index] = val;
                 
                     break;
                 }
@@ -1564,9 +1591,6 @@ public:
                         if (globals.size() <= static_cast<size_t>(index)){
                             throwError("Stack Underflow", -1);
                         }
-                        // if (isNull(globals[index])){
-                        //     throwError("No variable declared or variable is null.", -1);
-                        // }
                         push(globals[index]);
                     }
                     break;
@@ -1633,6 +1657,11 @@ public:
                         for (int i = argCount - 1; i >= 0; --i) {
                             args[i] = pop();
                         }
+                        for (Value v : args){
+                            if (std::holds_alternative<std::monostate>(v)) {
+                                throwError("Functions parameter cannot be null", errors::syntaxError, 1, errorToString(syntaxError));
+                            }
+                        }
                         Value result = func.nativeHandler(args);
                         push(result);
                     } else {
@@ -1674,10 +1703,9 @@ public:
                     if (slot < (int)frame.localTypes.size()) {
                         DataType expected = frame.localTypes[slot];
                         DataType given = valueToType(val);
-                        if (!isTypeCompatible(expected, given)) {
+                        if (expected != given) {
                             throwError("Cannot store " + std::string(typeToString(expected)) + " value into " + std::string(typeToString(given)) + " variable", -1, true);
                         }
-                        val = convertValSafely(val, expected, given);
                     }
                     int actualIndex = frame.stackBase + slot;
                     if (static_cast<size_t>(actualIndex) >= stack.size()) {
@@ -1708,6 +1736,21 @@ public:
                     
                     push(str[idx]);
                     break;
+                }
+                case OP_CAST: {
+                    const DataType source = static_cast<DataType>(valueToInt(pop()));
+                    const DataType target = (DataType)valueToInt(instr.value);
+                    const Value v = pop();
+                    if (source == target) {push(v); break;}
+                    try{
+                        if (isTypeCompatible(target, source)) push(convertValSafely(v, target, source));
+                        if (target == DataType::INT && source == DataType::STRING){ push(std::stoi(stringify(v))); }
+                        break;
+                    }
+                    catch (...){
+                        throwError((std::string)"Couldn't cast " + enum_to_string(valueToType(v)) + " to " + enum_to_string(target), typeError, 1, errorToString(typeError));
+                    }
+                    throwError((std::string)"Couldn't cast " + enum_to_string(valueToType(v)) + " to " + enum_to_string(target), typeError, 1, errorToString(typeError));
                 }
                 case OP_GET_MEMBER:{
 

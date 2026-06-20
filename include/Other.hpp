@@ -64,6 +64,30 @@ constexpr std::string_view enum_to_string(E value) {
     return "<unknown>";
 }
 
+enum errors {
+    typeError = -8,
+    syntaxError,
+    strayKeywordError,
+    undefinedError,
+    undefinedFunctionError,
+    uncaughtException,
+    staticException, // This exception can only be added by the compiler
+    defaultException
+};
+
+std::string errorToString(errors err){
+    switch (err){
+        case defaultException:  return "Default Exception"  ; break;
+        case strayKeywordError: return "Stray Keyword"      ; break;
+        case undefinedError:    return "Undefined"          ; break;
+        case uncaughtException: return "Uncaught Exception" ; break;
+        case staticException:   return "Compiler Exception" ; break;
+        case syntaxError:       return "Syntax Error"       ; break;
+        default: return "Unknown Error"; break;
+    }
+    return "";
+}
+
 enum class FuncType {
     INT, FLOAT, STRING, BOOL, VOID, STRUCT
 };
@@ -331,7 +355,10 @@ std::string stringify(const Value& v) {
             return "null";
         } else if constexpr (std::is_same_v<T, std::shared_ptr<IsiStructInstance>>) {
             return arg ? ("struct " + arg->name) : "null";
-        } else {
+        } else if constexpr (std::is_same_v<T, double>) {
+            return std::format("{:.14g}",arg);
+        }
+        else {
             return std::to_string(arg);
         }
     }, v);
@@ -496,17 +523,6 @@ Value defaultValueOfType(DataType type){
     return std::monostate{};
 }
 
-enum errors {
-    typeError = -8,
-    syntaxError,
-    strayKeywordError,
-    undefinedError,
-    undefinedFunctionError,
-    uncaughtException,
-    staticException, // This exception can only be added by the compiler
-    defaultException
-};
-
 bool tokenIsDecl(isiTokenType tok){
     switch (tok){
         case TOKEN_INT: return true;
@@ -569,14 +585,16 @@ std::string nearestString(const std::vector<std::string> &set, const std::string
     return curNearest;
 }
 
-std::string errorToString(errors err){
-    switch (err){
-        case defaultException:  return "Default Exception"; break;
-        case strayKeywordError: return "Stray Keyword"    ; break;
-        case undefinedError:    return "Undefined"        ; break;
-        case uncaughtException:return "Uncaught Exception"; break;
-        case staticException: return "Compiler Exception" ; break;
-        default: return "Unknown Error"; break;
-    }
-    return "";
+DataType tokenToType(isiTokenType t){
+    if (!tokenIsDecl(t)) return DataType::VOID;
+    switch (t){
+        case TOKEN_INT: return DataType::INT; break;
+        case TOKEN_FLOAT: return DataType::FLOAT; break;
+        case TOKEN_CHAR_T: return DataType::CHAR; break;
+        case TOKEN_STRING_T: return DataType::STRING; break;
+        case TOKEN_STRUCT: return DataType::STRUCT; break;
+        case TOKEN_AUTO: return DataType::VOID; break;
+        default: break;
+    };
+    return DataType::VOID;
 }

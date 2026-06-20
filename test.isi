@@ -1,4 +1,1 @@
-import "std/standard.isi"
-
-int a = null;
-print(a,"\n");
+string a = (string)4;
