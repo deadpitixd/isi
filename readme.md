@@ -1,7 +1,7 @@
 # Interscript Interpreted
 
 > [!WARNING]
-> Deeply WIP project!
+> Syntax might currently change between versions
 
 > Currently a JIT compiler is in the works.
 
