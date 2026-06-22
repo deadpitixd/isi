@@ -1,6 +1,9 @@
 # Interscript Interpreted
 
-> Currently a JIT compiler is in the works, so please wait...
+> [!WARNING]
+> Deeply WIP project!
+
+> Currently a JIT compiler is in the works.
 
 Website:
 https://deadpitixd.github.io/isi/
@@ -10,7 +13,20 @@ https://deadpitixd.github.io/isi/
 
 # Compiling
 Use:
-`g++ main.cpp -o isi -std=c++20`
+`g++ main.cpp -o isi -std=c++26`
 
-# C++ Functions
-> To be added
+## Progress:
+- Data Types
+    - int
+    - float
+    - string
+    - char
+- External C++ functions
+- Functions
+    - print()
+    - throw()
+- Standard library
+
+## Currently working on:
+- Minor updates
+- Structs and classes
